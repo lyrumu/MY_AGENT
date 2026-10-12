@@ -1,14 +1,14 @@
 {
   "deepseek": {
     "type": "api_key",
-    "key": "!security find-generic-password -a \"$USER\" -ws 'pi-deepseek'"
+    "key": "!security find-generic-password -a \"$USER\" -ws 'deepseek'"
   },
   "zai": {
     "type": "api_key",
-    "key": "!security find-generic-password -a \"$USER\" -ws 'pi-zai'"
+    "key": "!security find-generic-password -a \"$USER\" -ws 'zai'"
   },
   "xiaomi": {
     "type": "api_key",
-    "key": "!security find-generic-password -a \"$USER\" -ws 'pi-xiaomi'"
+    "key": "!security find-generic-password -a \"$USER\" -ws 'xiaomi'"
   }
 }

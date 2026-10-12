@@ -4,51 +4,51 @@
     "frontend-design@claude-plugins-official": [
       {
         "scope": "user",
-        "installPath": "/Users/lyrumu/.claude/plugins/cache/claude-plugins-official/frontend-design/d182ca456ca0",
-        "version": "d182ca456ca0",
+        "installPath": "/Users/lyrumu/.claude/plugins/cache/claude-plugins-official/frontend-design/b8e53f1c05df",
+        "version": "b8e53f1c05df",
         "installedAt": "2026-08-03T08:31:10.173Z",
-        "lastUpdated": "2026-10-03T08:56:45.611Z",
-        "gitCommitSha": "d182ca456ca09d31d139f7d3818d1d333b103cce"
+        "lastUpdated": "2026-10-10T09:42:02.578Z",
+        "gitCommitSha": "b8e53f1c05dff3b6d751297f6527990ffc81c2f4"
       }
     ],
     "context7@claude-plugins-official": [
       {
         "scope": "user",
-        "installPath": "/Users/lyrumu/.claude/plugins/cache/claude-plugins-official/context7/d182ca456ca0",
-        "version": "d182ca456ca0",
+        "installPath": "/Users/lyrumu/.claude/plugins/cache/claude-plugins-official/context7/b8e53f1c05df",
+        "version": "b8e53f1c05df",
         "installedAt": "2026-08-03T08:32:01.232Z",
-        "lastUpdated": "2026-10-03T08:56:45.612Z",
-        "gitCommitSha": "d182ca456ca09d31d139f7d3818d1d333b103cce"
+        "lastUpdated": "2026-10-10T09:42:02.578Z",
+        "gitCommitSha": "b8e53f1c05dff3b6d751297f6527990ffc81c2f4"
       }
     ],
     "ponytail@ponytail": [
       {
         "scope": "user",
-        "installPath": "/Users/lyrumu/.claude/plugins/cache/ponytail/ponytail/4.10.3",
-        "version": "4.10.3",
+        "installPath": "/Users/lyrumu/.claude/plugins/cache/ponytail/ponytail/5.1.0",
+        "version": "5.1.0",
         "installedAt": "2026-08-07T06:49:49.935Z",
-        "lastUpdated": "2026-10-03T08:56:45.611Z",
-        "gitCommitSha": "c982cd411abb53323c4baa1baa3c2f020b8d0b08"
+        "lastUpdated": "2026-10-10T09:42:02.577Z",
+        "gitCommitSha": "9b58c1ffb790c075ca32e70a89cf1d80588f4abf"
       }
     ],
     "mattpocock-skills@mattpocock": [
       {
         "scope": "user",
-        "installPath": "/Users/lyrumu/.claude/plugins/cache/mattpocock/mattpocock-skills/1.2.3",
-        "version": "1.2.3",
+        "installPath": "/Users/lyrumu/.claude/plugins/cache/mattpocock/mattpocock-skills/1.3.1",
+        "version": "1.3.1",
         "installedAt": "2026-09-30T07:06:29.399Z",
-        "lastUpdated": "2026-09-30T07:06:29.399Z",
-        "gitCommitSha": "d81f3a183412e71a5b1e84ca21bc1a35eea03a60"
+        "lastUpdated": "2026-10-10T09:42:02.577Z",
+        "gitCommitSha": "49dd158d1076134a641b33efb035946536778336"
       }
     ],
     "skill-creator@claude-plugins-official": [
       {
         "scope": "user",
-        "installPath": "/Users/lyrumu/.claude/plugins/cache/claude-plugins-official/skill-creator/d182ca456ca0",
-        "version": "d182ca456ca0",
+        "installPath": "/Users/lyrumu/.claude/plugins/cache/claude-plugins-official/skill-creator/b8e53f1c05df",
+        "version": "b8e53f1c05df",
         "installedAt": "2026-09-30T07:05:47.536Z",
-        "lastUpdated": "2026-10-03T08:56:45.612Z",
-        "gitCommitSha": "d182ca456ca09d31d139f7d3818d1d333b103cce"
+        "lastUpdated": "2026-10-10T09:42:02.578Z",
+        "gitCommitSha": "b8e53f1c05dff3b6d751297f6527990ffc81c2f4"
       }
     ]
   }

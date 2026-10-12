@@ -8,6 +8,9 @@ cursor-text = #f3e7da
 selection-background = #dfc5ae
 selection-foreground = #302923
 
+# 选中文字后自动写入系统剪贴板（macOS 下默认 true 只写 selection pasteboard，⌘V 取不到）
+copy-on-select = clipboard
+
 # Restrained transparency keeps CLI output readable.
 background-opacity = 0.92
 background-blur = true

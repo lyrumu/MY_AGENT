@@ -1,7 +1,13 @@
 {
+// @keychain {"env": "OPENCODE_MODEL_KEY_DEEPSEEK", "service": "deepseek", "account": "lyrumu", "reader": "security"}
+// @keychain {"env": "OPENCODE_MODEL_KEY_ZAI", "service": "zai", "account": "lyrumu", "reader": "security"}
+// @keychain {"env": "OPENCODE_MODEL_KEY_XIAOMI", "service": "xiaomi", "account": "lyrumu", "reader": "security"}
+// @keychain {"env": "CONTEXT7_API_KEY", "service": "context7-api-key", "account": "lyrumu", "reader": "security"}
+// @keychain {"env": "TAVILY_API_KEY", "service": "tavily-api-key", "account": "lyrumu", "reader": "security"}
+
   "$schema": "https://opencode.ai/config.json",//作用：为VScode等编辑工具提供自动补全和校验等 不影响opencode实际使用功能
   "autoupdate": true,
-  "small_model": "deepseek/deepseek-v4-flash",
+  "small_model": "deepseek/deepseek-flash",
   "default_agent": "plan",
   "permission": {
     "read": {
@@ -42,7 +48,6 @@
     }
   },
   "plugin": [
-    "opencode-supermemory",
     "@dietrichgebert/ponytail"
   ],
   "compaction": {
@@ -87,7 +92,7 @@
       "template": "清理上述过程中临时产生并且没有用处的文件，停止因为临时测试而启动的本地服务.最后检查各个状态是否正常，若不正常，提醒我或者直接修复.最终目的是保持系统和项目环境干净!所以请不要产生其他负面影响!",
       "description": "try to keep your project and system clean",
       "agent": "build",
-      "model": "deepseek/deepseek-v4-flash",
+      "model": "deepseek/deepseek-flash",
       "subtask": true
     },
     "cr": {
@@ -99,7 +104,7 @@
       "template": "识别项目测试命令（查 package.json / pyproject.toml / go.mod / Cargo.toml 等），运行测试套件。如果失败，分析首个失败 case 的根因。",
       "description": "Run project test suite (auto-detect)",
       "agent": "build",
-      "model": "deepseek/deepseek-v4-flash",
+      "model": "deepseek/deepseek-flash",
       "subtask": true
     }
   },
@@ -136,5 +141,23 @@
         "TAVILY_API_KEY": "{env:TAVILY_API_KEY}"
       }
     }
+  },
+  "provider": {
+  "deepseek": {
+    "options": {
+      "apiKey": "{env:OPENCODE_MODEL_KEY_DEEPSEEK}"
+    }
+  },
+  "zai-coding-plan": {
+    "options": {
+      "apiKey": "{env:OPENCODE_MODEL_KEY_ZAI}",
+      "baseURL": "https://api.z.ai/api/coding/paas/v4"
+    }
+  },
+  "xiaomi": {
+    "options": {
+      "apiKey": "{env:OPENCODE_MODEL_KEY_XIAOMI}"
+    }
   }
+}
 }

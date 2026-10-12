@@ -1,0 +1,332 @@
+#!/opt/homebrew/bin/python3
+"""Read API keys from macOS Keychain and replace this process with OpenCode."""
+
+import ctypes
+import json
+import os
+from pathlib import Path
+import pwd
+import re
+import subprocess
+import sys
+
+
+REAL_BINARY = Path.home() / ".opencode/bin/opencode"
+
+
+class KeychainError(Exception):
+    def __init__(self, status):
+        self.status = status
+        super().__init__(f"Keychain status {status}")
+
+
+class Keychain:
+    def __init__(self):
+        self.cf = ctypes.CDLL(
+            "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
+        )
+        self.sec = ctypes.CDLL(
+            "/System/Library/Frameworks/Security.framework/Security"
+        )
+        signatures = {
+            "CFStringCreateWithCString": (ctypes.c_void_p, [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_uint32]),
+            "CFStringGetLength": (ctypes.c_long, [ctypes.c_void_p]),
+            "CFStringGetCString": (ctypes.c_bool, [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_long, ctypes.c_uint32]),
+            "CFDictionaryCreateMutable": (ctypes.c_void_p, [ctypes.c_void_p, ctypes.c_long, ctypes.c_void_p, ctypes.c_void_p]),
+            "CFDictionarySetValue": (None, [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]),
+            "CFDictionaryGetValue": (ctypes.c_void_p, [ctypes.c_void_p, ctypes.c_void_p]),
+            "CFDataCreate": (ctypes.c_void_p, [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_long]),
+            "CFDataGetLength": (ctypes.c_long, [ctypes.c_void_p]),
+            "CFDataGetBytePtr": (ctypes.c_void_p, [ctypes.c_void_p]),
+            "CFArrayGetCount": (ctypes.c_long, [ctypes.c_void_p]),
+            "CFArrayGetValueAtIndex": (ctypes.c_void_p, [ctypes.c_void_p, ctypes.c_long]),
+            "CFRelease": (None, [ctypes.c_void_p]),
+        }
+        for name, (result, args) in signatures.items():
+            fn = getattr(self.cf, name)
+            fn.restype, fn.argtypes = result, args
+        for name in ["SecItemCopyMatching", "SecItemAdd"]:
+            fn = getattr(self.sec, name)
+            fn.restype = ctypes.c_int32
+            fn.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+
+    def constant(self, name):
+        return ctypes.c_void_p.in_dll(self.sec, name).value
+
+    def disable_interaction(self):
+        # The legacy login Keychain ignores kSecUseAuthenticationUIFail for some items.
+        function = self.sec.SecKeychainSetUserInteractionAllowed
+        function.restype, function.argtypes = ctypes.c_int32, [ctypes.c_ubyte]
+        status = function(False)
+        if status:
+            raise KeychainError(status)
+
+    def dictionary(self, fields, *, return_data=False, return_attributes=False):
+        cf = self.cf
+        query = cf.CFDictionaryCreateMutable(
+            None, 0,
+            ctypes.addressof(ctypes.c_char.in_dll(cf, "kCFTypeDictionaryKeyCallBacks")),
+            ctypes.addressof(ctypes.c_char.in_dll(cf, "kCFTypeDictionaryValueCallBacks")),
+        )
+        if not query:
+            raise RuntimeError("Unable to allocate Keychain query")
+        cf.CFDictionarySetValue(query, self.constant("kSecClass"), self.constant("kSecClassGenericPassword"))
+        try:
+            for name, value in fields.items():
+                if isinstance(value, bytes):
+                    obj = cf.CFDataCreate(None, value, len(value))
+                else:
+                    obj = cf.CFStringCreateWithCString(None, value.encode("utf-8"), 0x08000100)
+                if not obj:
+                    raise RuntimeError("Unable to allocate Keychain attribute")
+                try:
+                    cf.CFDictionarySetValue(query, self.constant(name), obj)
+                finally:
+                    cf.CFRelease(obj)
+            true = ctypes.c_void_p.in_dll(cf, "kCFBooleanTrue").value
+            if return_data:
+                cf.CFDictionarySetValue(query, self.constant("kSecReturnData"), true)
+            if return_attributes:
+                cf.CFDictionarySetValue(query, self.constant("kSecReturnAttributes"), true)
+                cf.CFDictionarySetValue(query, self.constant("kSecMatchLimit"), self.constant("kSecMatchLimitAll"))
+            return query
+        except Exception:
+            cf.CFRelease(query)
+            raise
+
+    def copy(self, query):
+        result = ctypes.c_void_p()
+        try:
+            status = self.sec.SecItemCopyMatching(query, ctypes.byref(result))
+            if status:
+                raise KeychainError(status)
+            return result.value
+        finally:
+            self.cf.CFRelease(query)
+
+    def read(self, service, account):
+        result = self.copy(self.dictionary(
+            {"kSecAttrService": service, "kSecAttrAccount": account}, return_data=True
+        ))
+        try:
+            return ctypes.string_at(self.cf.CFDataGetBytePtr(result), self.cf.CFDataGetLength(result))
+        finally:
+            self.cf.CFRelease(result)
+
+    def identifiers(self, *, service=None, account=None):
+        fields = {}
+        if service is not None:
+            fields["kSecAttrService"] = service
+        if account is not None:
+            fields["kSecAttrAccount"] = account
+        if not fields:
+            raise ValueError("A specific Keychain identifier is required")
+        result = self.copy(self.dictionary(fields, return_attributes=True))
+        try:
+            items = []
+            for i in range(self.cf.CFArrayGetCount(result)):
+                record = self.cf.CFArrayGetValueAtIndex(result, i)
+                item = []
+                for name in ["kSecAttrService", "kSecAttrAccount"]:
+                    value = self.cf.CFDictionaryGetValue(record, self.constant(name))
+                    if not value:
+                        item.append("")
+                        continue
+                    buffer = ctypes.create_string_buffer(self.cf.CFStringGetLength(value) * 4 + 1)
+                    if not self.cf.CFStringGetCString(value, buffer, len(buffer), 0x08000100):
+                        raise RuntimeError("Unable to decode Keychain identifier")
+                    item.append(buffer.value.decode("utf-8"))
+                items.append(tuple(item))
+            return items
+        finally:
+            self.cf.CFRelease(result)
+
+
+class LaunchError(Exception):
+    pass
+
+
+def config_entries(text, default_account):
+    # Declarations live in JSONC comments, so OpenCode receives only its own schema.
+    clean, comments = [], []
+    i, quoted, escaped = 0, False, False
+    while i < len(text):
+        char = text[i]
+        if quoted:
+            clean.append(char)
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                quoted = False
+            i += 1
+        elif char == '"':
+            quoted = True
+            clean.append(char)
+            i += 1
+        elif text.startswith("//", i):
+            end = text.find("\n", i)
+            end = len(text) if end < 0 else end
+            comments.append(text[i + 2:end].strip())
+            clean.append(" ")
+            i = end
+        elif text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            if end < 0:
+                raise LaunchError("OpenCode 配置存在未闭合注释")
+            clean.append(" ")
+            i = end + 2
+        else:
+            clean.append(char)
+            i += 1
+    # JSONC permits trailing commas; remove them only outside quoted strings.
+    text = "".join(clean)
+    clean = []
+    quoted, escaped = False, False
+    for i, char in enumerate(text):
+        if not quoted and char == ",":
+            following = i + 1
+            while following < len(text) and text[following].isspace():
+                following += 1
+            if following < len(text) and text[following] in "}]":
+                continue
+        clean.append(char)
+        if escaped:
+            escaped = False
+        elif quoted and char == "\\":
+            escaped = True
+        elif char == '"':
+            quoted = not quoted
+    try:
+        config = json.loads("".join(clean))
+        if not isinstance(config, dict):
+            raise ValueError()
+    except Exception:
+        raise LaunchError("OpenCode 配置不是有效的 JSON/JSONC") from None
+    references = set()
+    def collect(value):
+        if isinstance(value, str):
+            references.update(re.findall(r"\{env:([^}]+)\}", value))
+        elif isinstance(value, dict):
+            for child in value.values():
+                collect(child)
+        elif isinstance(value, list):
+            for child in value:
+                collect(child)
+    collect(config)
+    entries, names, readers = [], set(), {}
+    for comment in comments:
+        if not re.match(r"@keychain(?:\s|$)", comment):
+            continue
+        try:
+            item = json.loads(comment[len("@keychain"):].strip())
+            if not isinstance(item, dict) or set(item) - {"env", "service", "account", "reader"}:
+                raise ValueError()
+            name, service = item["env"], item["service"]
+            account, reader = item.get("account", default_account), item.get("reader", "security")
+            if not isinstance(name, str) or not re.fullmatch(r"[A-Z_][A-Z0-9_]*", name):
+                raise ValueError()
+            if any(not isinstance(v, str) or not v or "\0" in v for v in [service, account]):
+                raise ValueError()
+            if reader not in ["native", "security"] or name in names:
+                raise ValueError()
+            pair = (service, account)
+            if pair in readers and readers[pair] != reader:
+                raise ValueError()
+            readers[pair] = reader
+            names.add(name)
+        except Exception:
+            raise LaunchError("@keychain 声明无效或重复；请检查变量名、服务名、账号和 reader") from None
+        entries.append((name, service, account, reader))
+    return entries, references
+
+
+def load_entries():
+    root = Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / "opencode"
+    paths = [p for p in [root / "opencode.json", root / "opencode.jsonc"] if p.exists()]
+    custom = os.environ.get("OPENCODE_CONFIG")
+    if custom:
+        path = Path(custom).expanduser()
+        if path not in paths:
+            paths.append(path)
+    declarations, references = {}, set()
+    try:
+        for path in paths:
+            entries, used = config_entries(path.read_text(), pwd.getpwuid(os.getuid()).pw_name)
+            declarations.update({entry[0]: entry for entry in entries})
+            references.update(used)
+        active = [entry for name, entry in declarations.items() if name in references]
+        readers = {}
+        for _, service, account, reader in active:
+            if (service, account) in readers and readers[service, account] != reader:
+                raise LaunchError("同一钥匙串条目配置了不同 reader；已停止启动")
+            readers[service, account] = reader
+        return active
+    except LaunchError:
+        raise
+    except Exception:
+        raise LaunchError("无法读取 OpenCode 配置；已停止启动") from None
+
+
+def read_security(service, account):
+    # Pi's existing tool entries trust this signed system binary, not Python.
+    result = subprocess.run(
+        ["/usr/bin/security", "find-generic-password", "-s", service, "-a", account, "-w"],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10,
+    )
+    if result.returncode:
+        raise KeychainError(result.returncode)
+    return result.stdout.removesuffix(b"\n")
+
+
+def launch_reader(entries, keychain):
+    keychain.disable_interaction()
+    readers = {(service, account): reader for name, service, account, reader in entries}
+    cache = {}
+    def read(service, account):
+        pair = (service, account)
+        if pair not in cache:
+            cache[pair] = read_security(service, account) if readers[pair] == "security" else keychain.read(service, account)
+        return cache[pair]
+    return read
+
+
+def build_environment(original, entries, read):
+    environment = dict(original)
+    for name, service, account, reader in entries:
+        if not re.fullmatch(r"[A-Z_][A-Z0-9_]*", name):
+            raise LaunchError("取密映射中的环境变量名无效")
+        try:
+            value = read(service, account).decode("utf-8")
+        except KeychainError as error:
+            raise LaunchError(f"无法读取 {name} 对应的钥匙串条目（状态 {error.status}）；已停止启动") from None
+        except Exception:
+            raise LaunchError(f"无法读取 {name} 对应的钥匙串条目；已停止启动") from None
+        if not value or "\0" in value:
+            raise LaunchError(f"{name} 对应的钥匙串条目为空或无效；已停止启动")
+        environment[name] = value
+    return environment
+
+
+def launch(arguments, *, binary=REAL_BINARY, entries=None, read=None, execute=os.execve):
+    if not binary.is_file() or not os.access(binary, os.X_OK):
+        raise LaunchError("找不到原 OpenCode 程序；请检查原安装路径")
+    if entries is None:
+        entries = load_entries()
+    if entries and read is None:
+        read = launch_reader(entries, Keychain())
+    environment = build_environment(os.environ, entries, read)
+    # exec keeps signal handling and exit status identical to the original command.
+    execute(str(binary), [str(binary), *arguments], environment)
+
+
+if __name__ == "__main__":
+    try:
+        launch(sys.argv[1:])
+    except LaunchError as error:
+        print(f"OpenCode：{error}", file=sys.stderr)
+        sys.exit(1)
+    except Exception:
+        print("OpenCode：启动失败，未输出凭据或底层异常内容", file=sys.stderr)
+        sys.exit(1)

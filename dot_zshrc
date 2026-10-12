@@ -33,3 +33,10 @@ typeset -U path
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+# BEGIN OpenCode Keychain launcher (managed)
+# 从 macOS 钥匙串取密后启动 OpenCode；不在 Shell 中导出密钥。
+opencode() {
+  /Users/lyrumu/.local/bin/opencode-keychain "$@"
+}
+# END OpenCode Keychain launcher (managed)
