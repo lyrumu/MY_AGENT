@@ -62,16 +62,6 @@
   "formatter": true,
   "shell": "zsh",
   "agent": {
-    "code-reviewer": {
-      "description": "Reviews code for best practices and potential issues",
-      "model": "deepseek/deepseek-v4-flash",
-      "prompt": "You are a code reviewer. Focus on security, performance, and maintainability.",
-      "permission": {
-        "write": "deny",
-        "edit": "deny"
-      },
-      "steps": 15
-    },
     "build": {
       "permission": {
         "bash": {
@@ -85,27 +75,6 @@
           "git reset --hard *": "deny"
         }
       }
-    }
-  },
-  "command": {
-    "clear": {
-      "template": "清理上述过程中临时产生并且没有用处的文件，停止因为临时测试而启动的本地服务.最后检查各个状态是否正常，若不正常，提醒我或者直接修复.最终目的是保持系统和项目环境干净!所以请不要产生其他负面影响!",
-      "description": "try to keep your project and system clean",
-      "agent": "build",
-      "model": "deepseek/deepseek-flash",
-      "subtask": true
-    },
-    "cr": {
-      "template": "用 code-reviewer 视角审视本次会话最近的改动（git diff 范围），重点：安全漏洞、性能问题、可维护性、可测试性。给出具体行号和建议，不要泛泛而谈。",
-      "description": "Code-review on recent changes (renamed to avoid shadowing built-in /review)",
-      "agent": "code-reviewer"
-    },
-    "test": {
-      "template": "识别项目测试命令（查 package.json / pyproject.toml / go.mod / Cargo.toml 等），运行测试套件。如果失败，分析首个失败 case 的根因。",
-      "description": "Run project test suite (auto-detect)",
-      "agent": "build",
-      "model": "deepseek/deepseek-flash",
-      "subtask": true
     }
   },
   "mcp": {
