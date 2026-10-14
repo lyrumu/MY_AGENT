@@ -1,132 +1,111 @@
 {
-// @keychain {"env": "OPENCODE_MODEL_KEY_DEEPSEEK", "service": "deepseek", "account": "lyrumu", "reader": "security"}
-// @keychain {"env": "OPENCODE_MODEL_KEY_ZAI", "service": "zai", "account": "lyrumu", "reader": "security"}
-// @keychain {"env": "OPENCODE_MODEL_KEY_XIAOMI", "service": "xiaomi", "account": "lyrumu", "reader": "security"}
+// @keychain {"env": "DEEPSEEK", "service": "deepseek", "account": "lyrumu", "reader": "security"}
+// @keychain {"env": "ZAI", "service": "zai", "account": "lyrumu", "reader": "security"}
+// @keychain {"env": "XIAOMI", "service": "xiaomi", "account": "lyrumu", "reader": "security"}
 // @keychain {"env": "CONTEXT7_API_KEY", "service": "context7-api-key", "account": "lyrumu", "reader": "security"}
 // @keychain {"env": "TAVILY_API_KEY", "service": "tavily-api-key", "account": "lyrumu", "reader": "security"}
 
   "$schema": "https://opencode.ai/config.json",//作用：为VScode等编辑工具提供自动补全和校验等 不影响opencode实际使用功能
-  "autoupdate": true,
-  "small_model": "deepseek/deepseek-flash",
+  "update": "auto",
   "default_agent": "plan",
-  "permission": {
-    "read": {
-      "*":"allow",
-      ".env":"deny",
-      ".env/**":"deny",
-      "/.env/api_keys.txt":"deny",
-      ".env/keys.txt":"deny",
-      ".env.example":"allow",
-      "*.pem":"deny",
-      "*.key":"deny",
-      "keys/**":"deny"
+  "shell": "zsh",
+  "permissions": [
+    { "action": "read", "resource": "*", "effect": "allow" },
+    { "action": "read", "resource": ".env", "effect": "deny" },
+    { "action": "read", "resource": ".env/**", "effect": "deny" },
+    { "action": "read", "resource": "/.env/api_keys.txt", "effect": "deny" },
+    { "action": "read", "resource": ".env/keys.txt", "effect": "deny" },
+    { "action": "read", "resource": ".env.example", "effect": "allow" },
+    { "action": "read", "resource": "*.pem", "effect": "deny" },
+    { "action": "read", "resource": "*.key", "effect": "deny" },
+    { "action": "read", "resource": "keys/**", "effect": "deny" },
+    { "action": "external_directory", "resource": "*", "effect": "ask" },
+    { "action": "shell", "resource": "*", "effect": "ask" },
+    { "action": "shell", "resource": "ls *", "effect": "allow" },
+    { "action": "shell", "resource": "wc *", "effect": "allow" },
+    { "action": "shell", "resource": "pwd", "effect": "allow" },
+    { "action": "shell", "resource": "echo *", "effect": "allow" },
+    { "action": "shell", "resource": "which *", "effect": "allow" },
+    { "action": "shell", "resource": "git status *", "effect": "allow" },
+    { "action": "shell", "resource": "git diff *", "effect": "allow" },
+    { "action": "shell", "resource": "git log *", "effect": "allow" },
+    { "action": "shell", "resource": "git show *", "effect": "allow" },
+    { "action": "shell", "resource": "git branch *", "effect": "allow" },
+    { "action": "shell", "resource": "npm test", "effect": "allow" },
+    { "action": "shell", "resource": "npm run lint", "effect": "allow" },
+    { "action": "shell", "resource": "npm run build", "effect": "allow" },
+    { "action": "shell", "resource": "pytest *", "effect": "allow" },
+    { "action": "shell", "resource": "go test *", "effect": "allow" },
+    { "action": "shell", "resource": "cargo test *", "effect": "allow" },
+    { "action": "shell", "resource": "rm -rf *", "effect": "deny" },
+    { "action": "shell", "resource": "rm -fr *", "effect": "deny" },
+    { "action": "shell", "resource": "sudo *", "effect": "deny" },
+    { "action": "shell", "resource": "curl * | *", "effect": "deny" },
+    { "action": "shell", "resource": "wget * | *", "effect": "deny" }
+  ],
+  "agents": {
+    "build": {
+      "permissions": [
+        { "action": "shell", "resource": "git push *", "effect": "deny" },
+        { "action": "shell", "resource": "git reset --hard *", "effect": "deny" }
+      ]
     },
-    "external_directory":"ask",
-    "bash": {
-      "*": "ask",
-      "ls *": "allow",
-      "wc *": "allow",
-      "pwd": "allow",
-      "echo *": "allow",
-      "which *": "allow",
-      "git status *": "allow",
-      "git diff *": "allow",
-      "git log *": "allow",
-      "git show *": "allow",
-      "git branch *": "allow",
-      "npm test": "allow",
-      "npm run lint": "allow",
-      "npm run build": "allow",
-      "pytest *": "allow",
-      "go test *": "allow",
-      "cargo test *": "allow",
-      "rm -rf *": "deny",
-      "rm -fr *": "deny",
-      "sudo *": "deny",
-      "curl * | *": "deny",
-      "wget * | *": "deny"
+    "title": {
+      "model": "deepseek/deepseek-flash"
     }
   },
-  "plugin": [
+  "plugins": [
     "@dietrichgebert/ponytail"
   ],
   "compaction": {
     "auto": true,
-    "prune": true,
-    "reserved": 10000
+    "buffer": 10000
   },
   "watcher": {
     "ignore": ["node_modules/**", ".git/**", "dist/**", "build/**", "*.log", ".env/**", "keys/**"]
   },
   "lsp": true,
   "formatter": true,
-  "shell": "zsh",
-  "agent": {
-    "build": {
-      "permission": {
-        "bash": {
-          "*": "ask",
-          "git status *": "allow",
-          "git diff *": "allow",
-          "git log *": "allow",
-          "git show *": "allow",
-          "git branch *": "allow",
-          "git push *": "deny",
-          "git reset --hard *": "deny"
+  "mcp": {
+    "servers": {
+      "context7": {
+        "type": "local",
+        "command": [
+          "npx",
+          "-y",
+          "@upstash/context7-mcp"
+        ],
+        "enabled": true,
+        "environment": {
+          "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
+        }
+      },
+      "tavily": {
+        "type": "local",
+        "command": ["tavily-mcp"],//这里采用了本地安装tavily 后续需要手动管理更新
+        "enabled": true,
+        "environment": {
+          "TAVILY_API_KEY": "{env:TAVILY_API_KEY}"
         }
       }
     }
   },
-  "mcp": {
-    "playwright": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "@playwright/mcp"
-      ],
-      "enabled": true,
-      "environment": {
-        "PLAYWRIGHT_MCP_HEADLESS": "true"
+  "providers": {
+    "deepseek": {
+      "settings": {
+        "apiKey": "{env:DEEPSEEK}"
       }
     },
-    "context7": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "@upstash/context7-mcp"
-      ],
-      "enabled": true,
-      "environment": {
-        "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
+    "zai-coding-plan": {
+      "settings": {
+        "apiKey": "{env:ZAI}",
+        "baseURL": "https://api.z.ai/api/coding/paas/v4"
       }
     },
-    "tavily": {
-      "type": "local",
-      "command": ["tavily-mcp"],//这里采用了本地安装tavily 后续需要手动管理更新
-      "enabled": true,
-      "environment": {
-        "TAVILY_API_KEY": "{env:TAVILY_API_KEY}"
+    "xiaomi": {
+      "settings": {
+        "apiKey": "{env:XIAOMI}"
       }
-    }
-  },
-  "provider": {
-  "deepseek": {
-    "options": {
-      "apiKey": "{env:OPENCODE_MODEL_KEY_DEEPSEEK}"
-    }
-  },
-  "zai-coding-plan": {
-    "options": {
-      "apiKey": "{env:OPENCODE_MODEL_KEY_ZAI}",
-      "baseURL": "https://api.z.ai/api/coding/paas/v4"
-    }
-  },
-  "xiaomi": {
-    "options": {
-      "apiKey": "{env:OPENCODE_MODEL_KEY_XIAOMI}"
     }
   }
-}
 }

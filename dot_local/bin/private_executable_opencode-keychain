@@ -309,6 +309,42 @@ def build_environment(original, entries, read):
     return environment
 
 
+def standalone_arguments(arguments):
+    arguments = list(arguments)
+    commands = {
+        "upgrade", "update", "uninstall", "acp", "api", "debug", "auth", "mcp",
+        "plugin", "models", "stats", "mini", "run", "session", "service",
+        "reload", "pair", "serve",
+    }
+    # shortcut: CLI flags match OpenCode v2; update this list if its argument schema changes.
+    value_options = {
+        "--prompt", "--session", "-s", "--log-level", "--completions",
+        "--model", "-m", "--agent", "--format", "--file", "-f", "--title",
+        "--replay-limit",
+    }
+    insertion, command_seen, index = 0, False, 0
+    while index < len(arguments):
+        argument = arguments[index]
+        if argument == "--":
+            break
+        option, equals, _ = argument.partition("=")
+        if option in {"--standalone", "--server", "--help", "-h", "--version", "-v", "--completions"}:
+            return arguments
+        if option in value_options:
+            index += 1 if equals else 2
+            continue
+        if not argument.startswith("-") and not command_seen:
+            command_seen = True
+            if argument in commands:
+                if argument not in {"run", "mini"}:
+                    return arguments
+                insertion = index + 1
+        index += 1
+    # A reused background server cannot inherit this launcher's refreshed keys.
+    arguments.insert(insertion, "--standalone")
+    return arguments
+
+
 def launch(arguments, *, binary=REAL_BINARY, entries=None, read=None, execute=os.execve):
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise LaunchError("找不到原 OpenCode 程序；请检查原安装路径")
@@ -318,7 +354,7 @@ def launch(arguments, *, binary=REAL_BINARY, entries=None, read=None, execute=os
         read = launch_reader(entries, Keychain())
     environment = build_environment(os.environ, entries, read)
     # exec keeps signal handling and exit status identical to the original command.
-    execute(str(binary), [str(binary), *arguments], environment)
+    execute(str(binary), [str(binary), *standalone_arguments(arguments)], environment)
 
 
 if __name__ == "__main__":

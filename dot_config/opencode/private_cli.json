@@ -5,7 +5,7 @@
   },
   "diffs": {
     "wrap": "word",
-    "view": "auto",
+    "view": "unified",
     "tree": true,
     "single": false
   },
@@ -15,7 +15,7 @@
     "thinking": "hide",
     "markdown": "rendered",
     "grouping": "none",
-    "verbosity": "high",
+    "verbosity": "low",
     "image_preview": false,
     "new_location": "launch",
     "permissions": "autoaccept"

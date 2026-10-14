@@ -19,7 +19,7 @@
   "codexStackClassicSubagents": false,
   "firstRunNoticeConfirmed": true,
   "newLayoutNoticeConfirmed": true,
-  "whatsNewSeenVersion": "4.0.8",
+  "whatsNewSeenVersion": "4.0.9",
   "commonConfigConfirmed": true,
   "language": "zh",
   "visibleApps": {
@@ -28,7 +28,7 @@
     "codex": false,
     "gemini": false,
     "grokbuild": false,
-    "opencode": false,
+    "opencode": true,
     "openclaw": false,
     "hermes": false,
     "pi": true,

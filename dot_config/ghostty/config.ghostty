@@ -41,3 +41,7 @@ palette = 12=#4b7195
 palette = 13=#916180
 palette = 14=#3c7772
 palette = 15=#faf4ed
+
+# 首个窗口默认落在项目目录。~/ 会展开为 $HOME；此选项仅作用于第一个窗口，
+# 之后 Cmd+T / Cmd+N 仍按 window-inherit-working-directory 继承当前目录。
+working-directory = ~/project
