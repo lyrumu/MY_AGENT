@@ -16,10 +16,10 @@
   "checkToolUpdatesOnStartup": false,
   "preserveCodexOfficialAuthOnSwitch": false,
   "unifyCodexSessionHistory": false,
-  "codexStackClassicSubagents": false,
+  "codexStackClassicTools": true,
   "firstRunNoticeConfirmed": true,
   "newLayoutNoticeConfirmed": true,
-  "whatsNewSeenVersion": "4.0.9",
+  "whatsNewSeenVersion": "4.0.13",
   "commonConfigConfirmed": true,
   "language": "zh",
   "visibleApps": {
@@ -48,6 +48,13 @@
     },
     "codexProviderTemplateV1": {
       "completedAt": "2026-07-26T07:05:10.941616+00:00"
+    },
+    "codexLegacyOfficialHistoryBucketV1": {
+      "completedAt": "2026-10-16T02:11:10.196003+00:00",
+      "targetProviderId": "openai",
+      "migratedJsonlFiles": 0,
+      "migratedStateRows": 0,
+      "codexConfigDir": "/Users/lyrumu/.codex"
     }
   }
 }

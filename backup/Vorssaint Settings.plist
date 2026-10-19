@@ -16,6 +16,8 @@
 		<true/>
 		<key>appUpdatesNotify</key>
 		<true/>
+		<key>appUpdatesRules</key>
+		<string>[]</string>
 		<key>audioPriorityDeviceNames</key>
 		<dict/>
 		<key>audioPriorityInputEnabled</key>
@@ -36,6 +38,7 @@
 			<string>com.apple.mobilephone</string>
 			<string>com.ccswitch.desktop</string>
 			<string>io.github.clash-verge-rev.clash-verge-rev</string>
+			<string>com.microsoft.edgemac</string>
 		</array>
 		<key>batteryLimitPercent</key>
 		<integer>5</integer>
@@ -45,6 +48,8 @@
 		<true/>
 		<key>brightnessControlEnabled</key>
 		<false/>
+		<key>brightnessKeyStep</key>
+		<string>standard</string>
 		<key>brightnessKeysEnabled</key>
 		<false/>
 		<key>brightnessOSDEnabled</key>
@@ -87,6 +92,8 @@
 		<array/>
 		<key>clipboardHistoryIncludeImagesFiles</key>
 		<true/>
+		<key>clipboardHistoryLayout</key>
+		<string>list</string>
 		<key>clipboardHistoryLimit</key>
 		<integer>50</integer>
 		<key>clipboardHistoryMenuBarPreview</key>
@@ -224,17 +231,19 @@
 		<key>featureAvailable.focusFollowsMouse</key>
 		<false/>
 		<key>featureAvailable.homebrew</key>
-		<true/>
+		<false/>
 		<key>featureAvailable.keepAwake</key>
 		<true/>
 		<key>featureAvailable.keyboardDebounce</key>
 		<false/>
 		<key>featureAvailable.killProcess</key>
 		<false/>
+		<key>featureAvailable.linearScroll</key>
+		<false/>
 		<key>featureAvailable.mediaTools</key>
 		<false/>
 		<key>featureAvailable.micMute</key>
-		<false/>
+		<true/>
 		<key>featureAvailable.middleClick</key>
 		<false/>
 		<key>featureAvailable.mixer</key>
@@ -268,20 +277,24 @@
 		<key>featureAvailable.notchAgents</key>
 		<true/>
 		<key>featureAvailable.notchCalendar</key>
-		<true/>
+		<false/>
 		<key>featureAvailable.notchDownloads</key>
 		<true/>
 		<key>featureAvailable.notchGestures</key>
 		<true/>
 		<key>featureAvailable.notchLiveEqualizer</key>
-		<true/>
+		<false/>
 		<key>featureAvailable.notchLyrics</key>
 		<true/>
+		<key>featureAvailable.notchMascot</key>
+		<false/>
 		<key>featureAvailable.notchNotifications</key>
 		<true/>
 		<key>featureAvailable.notchQueue</key>
 		<true/>
 		<key>featureAvailable.notchTimer</key>
+		<false/>
+		<key>featureAvailable.notchWatch</key>
 		<true/>
 		<key>featureAvailable.pastePlain</key>
 		<false/>
@@ -312,6 +325,8 @@
 		<key>featureAvailable.smoothScroll</key>
 		<true/>
 		<key>featureAvailable.soundOutputSwitcher</key>
+		<false/>
+		<key>featureAvailable.spacesOrder</key>
 		<false/>
 		<key>featureAvailable.superKey</key>
 		<false/>
@@ -345,6 +360,10 @@
 		<false/>
 		<key>focusFollowsMouseExceptions</key>
 		<array/>
+		<key>focusFollowsMouseRaise</key>
+		<true/>
+		<key>focusFollowsMouseWaitForStop</key>
+		<true/>
 		<key>hasOnboarded</key>
 		<true/>
 		<key>homebrewGroupDependencies</key>
@@ -381,6 +400,10 @@
 		<false/>
 		<key>keepAwakeShortcut</key>
 		<string>control+option+command:40</string>
+		<key>keepAwakeSwitchUsesUntil</key>
+		<false/>
+		<key>keepAwakeUntilTime</key>
+		<real>0.0</real>
 		<key>keyboardBrightnessDecreaseShortcut</key>
 		<string>option+command:27</string>
 		<key>keyboardBrightnessIncreaseShortcut</key>
@@ -402,9 +425,15 @@
 		<key>killProcessSortBy</key>
 		<string>cpu</string>
 		<key>lastUpdateIntroVersion</key>
-		<string>3.4.0</string>
+		<string>3.4.1</string>
 		<key>launchAtLoginWanted</key>
 		<true/>
+		<key>linearScrollEnabled</key>
+		<false/>
+		<key>linearScrollExceptions</key>
+		<array/>
+		<key>linearScrollLines</key>
+		<integer>3</integer>
 		<key>liquidGlassEnabled</key>
 		<true/>
 		<key>mediaGIFEnd</key>
@@ -513,6 +542,8 @@
 		<false/>
 		<key>menuBarHideIconWithMetrics</key>
 		<true/>
+		<key>menuBarIconSymbol</key>
+		<string></string>
 		<key>menuBarLabelStyle</key>
 		<string>compact</string>
 		<key>menuBarMemory</key>
@@ -617,6 +648,8 @@
 		<true/>
 		<key>monitorGraphPower</key>
 		<true/>
+		<key>monitorGraphScale</key>
+		<true/>
 		<key>monitorIntervalSeconds</key>
 		<integer>2</integer>
 		<key>monitorMemoryMetric</key>
@@ -659,6 +692,10 @@
 		<true/>
 		<key>monitorSysCPU</key>
 		<true/>
+		<key>monitorSysCPUCores</key>
+		<true/>
+		<key>monitorSysConnectedDevices</key>
+		<true/>
 		<key>monitorSysGPU</key>
 		<true/>
 		<key>monitorSysMemory</key>
@@ -693,8 +730,8 @@
 		<false/>
 		<key>musicBlockPlayReplacement</key>
 		<true/>
-		<key>musicBlockReplacementPath</key>
-		<string></string>
+		<key>networkSpeedUnit</key>
+		<string>bytes</string>
 		<key>notchAccessoriesEnabled</key>
 		<true/>
 		<key>notchAgentsCardOrder</key>
@@ -702,6 +739,8 @@
 		<key>notchAgentsClaude</key>
 		<true/>
 		<key>notchAgentsCodex</key>
+		<true/>
+		<key>notchAgentsCopilot</key>
 		<true/>
 		<key>notchAgentsDailyBudget</key>
 		<real>0.0</real>
@@ -717,12 +756,16 @@
 		<true/>
 		<key>notchAgentsLimitDisplay</key>
 		<string>remaining</string>
+		<key>notchAgentsLimitFocus</key>
+		<string>mostUsed</string>
 		<key>notchAgentsLimitThreshold</key>
 		<real>80</real>
 		<key>notchAgentsLiveActivity</key>
 		<true/>
+		<key>notchAgentsOpenCode</key>
+		<true/>
 		<key>notchAgentsPeriod</key>
-		<string>month</string>
+		<string>today</string>
 		<key>notchAgentsPriceUpdates</key>
 		<true/>
 		<key>notchAgentsReadout</key>
@@ -737,8 +780,20 @@
 		<false/>
 		<key>notchCalendarEnabled</key>
 		<true/>
+		<key>notchCalendarExcluded</key>
+		<array/>
+		<key>notchCalendarTimeLeft</key>
+		<false/>
+		<key>notchCalendarWeekNumbers</key>
+		<false/>
 		<key>notchCameraEnabled</key>
 		<true/>
+		<key>notchCapsuleFitDrop</key>
+		<real>0.0</real>
+		<key>notchCapsuleFitHeight</key>
+		<real>0.0</real>
+		<key>notchCapsuleFitWidth</key>
+		<real>0.0</real>
 		<key>notchCapture</key>
 		<true/>
 		<key>notchCaptureControls</key>
@@ -747,6 +802,12 @@
 		<true/>
 		<key>notchClipboardWindow</key>
 		<true/>
+		<key>notchCloseDelay</key>
+		<real>0.10000000000000001</real>
+		<key>notchCommandBar</key>
+		<true/>
+		<key>notchCommandBarStyle</key>
+		<string>droplet</string>
 		<key>notchControlOrder</key>
 		<string></string>
 		<key>notchCoversMenus</key>
@@ -770,12 +831,16 @@
 		<key>notchHapticFeedback</key>
 		<true/>
 		<key>notchHiddenControls</key>
-		<string>microphone,screenshot,recording,speedTest,panel,commandBar,scratchpad</string>
+		<string>commandBar,keyboardLight,panel,scratchpad,screenshot,speedTest</string>
 		<key>notchHiddenModules</key>
 		<string></string>
 		<key>notchHideInCaptures</key>
 		<false/>
 		<key>notchHideInFullscreen</key>
+		<false/>
+		<key>notchHideMenuBarGap</key>
+		<true/>
+		<key>notchHideTimerCountdown</key>
 		<false/>
 		<key>notchHideUntilHover</key>
 		<true/>
@@ -784,23 +849,61 @@
 		<key>notchHomeModule</key>
 		<string>controls</string>
 		<key>notchHoverDelay</key>
-		<real>0.25</real>
+		<real>0.10000000000000001</real>
 		<key>notchHoverExpands</key>
 		<true/>
 		<key>notchIdleContent</key>
-		<string>music</string>
+		<string>none</string>
 		<key>notchIncludeOtherPlayers</key>
+		<true/>
+		<key>notchKeepAwakeActivity</key>
 		<false/>
 		<key>notchKeyboardLight</key>
+		<true/>
+		<key>notchKeyboardLightControlHidden</key>
 		<true/>
 		<key>notchLiquidGlassEnabled</key>
 		<true/>
 		<key>notchLiveEqualizer</key>
 		<false/>
+		<key>notchLockScreen</key>
+		<false/>
+		<key>notchLockSounds</key>
+		<false/>
+		<key>notchLowBatteryEarly</key>
+		<false/>
+		<key>notchLowBatteryEarlyThreshold</key>
+		<integer>20</integer>
+		<key>notchLowBatteryMenuBar</key>
+		<true/>
+		<key>notchLowBatteryThreshold</key>
+		<integer>10</integer>
+		<key>notchLowBatteryTint</key>
+		<false/>
 		<key>notchLyricsEnabled</key>
 		<true/>
 		<key>notchLyricsOnline</key>
 		<false/>
+		<key>notchMascotEnabled</key>
+		<false/>
+		<key>notchMascotHidesWhenIdle</key>
+		<true/>
+		<key>notchMascotPalette</key>
+		<string>pearl</string>
+		<key>notchMascotReactions</key>
+		<true/>
+		<key>notchMascotShape</key>
+		<string>ball</string>
+		<key>notchMascotSide</key>
+		<string>left</string>
+		<key>notchMascotStyle</key>
+		<string>minimal</string>
+		<key>notchMascotVisitFrequency</key>
+		<string>normal</string>
+		<key>notchMascotVisits</key>
+		<true/>
+		<key>notchMicrophone</key>
+		<true/>
 		<key>notchModuleOrder</key>
 		<string></string>
 		<key>notchMusicActivity</key>
@@ -808,6 +911,8 @@
 		<key>notchNotificationsEnabled</key>
 		<true/>
 		<key>notchOpenOnHover</key>
+		<true/>
+		<key>notchOpensActivity</key>
 		<true/>
 		<key>notchOutlineEnabled</key>
 		<true/>
@@ -821,15 +926,30 @@
 		<integer>5</integer>
 		<key>notchPomodoroTotalSessions</key>
 		<integer>4</integer>
+		<key>notchPreferredPlayer</key>
+		<string></string>
 		<key>notchQueueEnabled</key>
 		<true/>
 		<key>notchQuickAccessLayout</key>
 		<data>
 		eyJidXR0b25zIjpbeyJhY3Rpb25JRCI6InNldHRpbmdzIiwiaWQiOiIwMDAw
 		MDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDMiLCJsYWJlbCI6IiIs
-		InNpZGUiOiJyaWdodCJ9LHsiYWN0aW9uSUQiOiJjb250cm9sLm11c2ljIiwi
-		aWQiOiJBOUFEQUFENC0xMTlELTQ4ODQtQjEwMS0yNkFBOTBFNTFCRjQiLCJs
-		YWJlbCI6IiIsInNpZGUiOiJyaWdodCJ9XSwidmVyc2lvbiI6MX0=
+		InNpZGUiOiJyaWdodCJ9LHsiYWN0aW9uSUQiOiJjb250cm9sLnNjcmF0Y2hw
+		YWQiLCJpZCI6IjBGNTU0NERFLUI2REItNEYwQi1BOUVELTYzODUyNkM5RDFD
+		NCIsImxhYmVsIjoiIiwic2lkZSI6ImxlZnQifSx7ImFjdGlvbklEIjoiZmls
+		ZXMiLCJpZCI6IjBDNzUxODA5LTIxMkItNDQ5RS04RTQ3LTdCRjVDMzkzMkZB
+		OCIsImxhYmVsIjoiIiwic2lkZSI6ImxlZnQifSx7ImFjdGlvbklEIjoic3lz
+		dGVtIiwiaWQiOiJFOTk0REU0Qy1BMkVBLTQ2MzMtODcxMi0xOTI1RjRFMTFF
+		ODkiLCJsYWJlbCI6IiIsInNpZGUiOiJyaWdodCJ9LHsiYWN0aW9uSUQiOiJj
+		b250cm9sLm11c2ljIiwiaWQiOiJBOUFEQUFENC0xMTlELTQ4ODQtQjEwMS0y
+		NkFBOTBFNTFCRjQiLCJsYWJlbCI6IiIsInNpZGUiOiJsZWZ0In0seyJhY3Rp
+		b25JRCI6ImFnZW50cyIsImlkIjoiNzJDNzc0RUEtQkYyQS00MzY5LTk2REQt
+		QTRDNjgxNUFEODI4IiwibGFiZWwiOiIiLCJzaWRlIjoicmlnaHQifSx7ImFj
+		dGlvbklEIjoiY29udHJvbC5taWNyb3Bob25lIiwiaWQiOiI1RDVDMDUwRi0z
+		RDQxLTRFNTAtOTIyNS0wOTdCQjJFMDI0QkMiLCJsYWJlbCI6IiIsInNpZGUi
+		OiJib3R0b20ifSx7ImFjdGlvbklEIjoiY29udHJvbC5yZWNvcmRpbmciLCJp
+		ZCI6IjFEMjlFQjY3LUQ3REQtNEJFRC1BRThCLTM1MEM2NzlERjdERiIsImxh
+		YmVsIjoiIiwic2lkZSI6ImJvdHRvbSJ9XSwidmVyc2lvbiI6MX0=
 		</data>
 		<key>notchQuickPanel</key>
 		<true/>
@@ -845,17 +965,29 @@
 		<true/>
 		<key>notchShowPlayingMusic</key>
 		<true/>
+		<key>notchSilhouette</key>
+		<string>capsule</string>
 		<key>notchSize</key>
 		<string>custom</string>
 		<key>notchTimerEnabled</key>
 		<true/>
+		<key>notchTimerMinutes</key>
+		<integer>15</integer>
 		<key>notchTimerMode</key>
 		<string>timer</string>
 		<key>notchTimerSoundEnabled</key>
 		<true/>
 		<key>notchTrackChange</key>
 		<true/>
+		<key>notchTranslucentBackground</key>
+		<false/>
 		<key>notchVolume</key>
+		<true/>
+		<key>notchWatchCondition</key>
+		<string>changes</string>
+		<key>notchWatchEnabled</key>
+		<true/>
+		<key>notchWatchSound</key>
 		<true/>
 		<key>onboardingStep</key>
 		<integer>0</integer>
@@ -881,6 +1013,8 @@
 		<true/>
 		<key>panelControlKeyDebounce</key>
 		<true/>
+		<key>panelControlLinearScroll</key>
+		<true/>
 		<key>panelControlMiddleClick</key>
 		<true/>
 		<key>panelControlMouseAcceleration</key>
@@ -898,6 +1032,8 @@
 		<key>panelControlRadialMenu</key>
 		<true/>
 		<key>panelControlShelf</key>
+		<true/>
+		<key>panelControlSpacesOrder</key>
 		<true/>
 		<key>panelControlSuperKey</key>
 		<true/>
@@ -1055,14 +1191,14 @@
 		<integer>3</integer>
 		<key>recorderEditorPresets</key>
 		<data>
-		W3sicG9pbnRlclNtb290aGluZyI6InNtb290aCIsInBvaW50ZXJTaXplIjoy
-		LCJiYWNrZHJvcCI6IntcInBhZGRpbmdcIjowLjI5NTQxOTczMDM5MjE1Njg1
-		LFwia2luZFwiOlwicHJlc2V0XCIsXCJibHVyXCI6MCxcImNvcm5lclJhZGl1
-		c1wiOjAuNjAzMDkxMjA4OTEwMDM0NSxcInByZXNldElEXCI6XCJncmFwaGl0
-		ZVwifSIsImFzcGVjdCI6Im9yaWdpbmFsIiwiaWQiOiIyMzEzMTg0Qy02MjNC
-		LTRDOTAtOTgxNi1COTJGRUNCNDVFQUUiLCJ6b29tRW5hYmxlZCI6dHJ1ZSwi
-		c2hvd3NQb2ludGVyIjp0cnVlLCJzaG93c0NsaWNrUmluZyI6dHJ1ZSwiem9v
-		bUFtb3VudCI6MS44LCJuYW1lIjoib3BlbmJpZGRpbmcifV0=
+		W3siYXNwZWN0Ijoib3JpZ2luYWwiLCJwb2ludGVyU21vb3RoaW5nIjoic21v
+		b3RoIiwic2hvd3NDbGlja1JpbmciOnRydWUsImlkIjoiMjMxMzE4NEMtNjIz
+		Qi00QzkwLTk4MTYtQjkyRkVDQjQ1RUFFIiwiem9vbUFtb3VudCI6MS44LCJu
+		YW1lIjoib3BlbmJpZGRpbmciLCJwb2ludGVyU2l6ZSI6Miwic2hvd3NQb2lu
+		dGVyIjp0cnVlLCJ6b29tRW5hYmxlZCI6dHJ1ZSwiYmFja2Ryb3AiOiJ7XCJw
+		YWRkaW5nXCI6MC4yOTU0MTk3MzAzOTIxNTY4NSxcImtpbmRcIjpcInByZXNl
+		dFwiLFwiYmx1clwiOjAsXCJjb3JuZXJSYWRpdXNcIjowLjYwMzA5MTIwODkx
+		MDAzNDUsXCJwcmVzZXRJRFwiOlwiZ3JhcGhpdGVcIn0ifV0=
 		</data>
 		<key>recorderFrameRate</key>
 		<integer>60</integer>
@@ -1071,13 +1207,11 @@
 		<key>recorderGIFSize</key>
 		<string>medium</string>
 		<key>recorderMicrophone</key>
-		<true/>
+		<false/>
 		<key>recorderOpenEditor</key>
 		<true/>
 		<key>recorderQuality</key>
 		<string>high</string>
-		<key>recorderSaveFolder</key>
-		<string>/Users/lyrumu/Downloads</string>
 		<key>recorderSharingEnabled</key>
 		<true/>
 		<key>recorderShortcut</key>
@@ -1100,6 +1234,8 @@
 		<string>option:17</string>
 		<key>scratchpadShortcutEnabled</key>
 		<true/>
+		<key>scratchpadTextSize</key>
+		<real>13</real>
 		<key>screenOCRDetectQRCodes</key>
 		<true/>
 		<key>screenOCRRemoveLineBreaks</key>
@@ -1110,6 +1246,8 @@
 		<false/>
 		<key>screenOCRShowCaptureMenuOnShortcut</key>
 		<true/>
+		<key>screenshotAddToShelf</key>
+		<false/>
 		<key>screenshotAnnotationShadows</key>
 		<false/>
 		<key>screenshotBackdropPresets</key>
@@ -1142,12 +1280,18 @@
 		<false/>
 		<key>screenshotHideVorssaintWindows</key>
 		<true/>
+		<key>screenshotHighlightWindows</key>
+		<true/>
 		<key>screenshotIncludePointer</key>
 		<false/>
 		<key>screenshotLastArrowStyle</key>
 		<string>filled</string>
 		<key>screenshotLastBlurLevel</key>
 		<integer>3</integer>
+		<key>screenshotLastBlurStyle</key>
+		<string>pixelate</string>
+		<key>screenshotLastBlurTextOnly</key>
+		<false/>
 		<key>screenshotLastCaptureShortcut</key>
 		<string>control+option+command:14</string>
 		<key>screenshotLastCaptureShortcutEnabled</key>
@@ -1172,12 +1316,14 @@
 		<false/>
 		<key>screenshotOpenEditorDirectly</key>
 		<false/>
+		<key>screenshotPreviewDuration</key>
+		<integer>3</integer>
+		<key>screenshotPreviewEnabled</key>
+		<true/>
 		<key>screenshotPreviewPosition</key>
 		<string></string>
 		<key>screenshotPreviewTakesFocus</key>
 		<true/>
-		<key>screenshotSaveFolder</key>
-		<string></string>
 		<key>screenshotSaveSubfolder</key>
 		<string></string>
 		<key>screenshotSharingEnabled</key>
@@ -1196,10 +1342,16 @@
 		<string></string>
 		<key>screenshotToolShortcutsEnabled</key>
 		<true/>
+		<key>screenshotUploadDuration</key>
+		<integer>3600</integer>
+		<key>screenshotUploadShortcut</key>
+		<string>control+option+command:32</string>
+		<key>screenshotUploadShortcutEnabled</key>
+		<false/>
 		<key>screenshotWatermarkPresets</key>
 		<string>[]</string>
 		<key>screenshotWatermarkStyle</key>
-		<string>{"size":0.3,"kind":"none","color":"white","opacity":0.4,"text":"","anchor":"bottomTrailing","rotation":0}</string>
+		<string>{"opacity":0.4,"color":"white","rotation":0,"size":0.3,"anchor":"bottomTrailing","text":"","kind":"none"}</string>
 		<key>scrollHorizontalEnabled</key>
 		<false/>
 		<key>scrollHorizontalModifier</key>
@@ -1230,6 +1382,8 @@
 		<false/>
 		<key>shelfShortcut</key>
 		<string>option:6</string>
+		<key>shelfShortcutAddsFinderSelection</key>
+		<false/>
 		<key>shelfShortcutEnabled</key>
 		<true/>
 		<key>showCountdownInMenuBar</key>
@@ -1256,6 +1410,8 @@
 		<false/>
 		<key>soundOutputSwitcherShortcut</key>
 		<string>control+option+command:1</string>
+		<key>spacesOrderEnabled</key>
+		<false/>
 		<key>superKeyEnabled</key>
 		<false/>
 		<key>superKeyExceptions</key>
@@ -1267,7 +1423,7 @@
 		<key>superKeySource</key>
 		<string>capsLock</string>
 		<key>supportUpdateIntroVersion</key>
-		<string>3.4.0-support</string>
+		<string>3.4.1-support</string>
 		<key>switcherAppRules</key>
 		<dict/>
 		<key>switcherAppearanceDelay</key>
@@ -1286,6 +1442,8 @@
 		<false/>
 		<key>switcherMinimizedPlacement</key>
 		<string>normal</string>
+		<key>switcherPreviewExcludedApps</key>
+		<array/>
 		<key>switcherPreviewSize</key>
 		<string>normal</string>
 		<key>switcherScreenPlacement</key>
@@ -1360,6 +1518,8 @@
 		<string></string>
 		<key>windowEdgeSnapEnabled</key>
 		<true/>
+		<key>windowEdgeSnapZoneActions</key>
+		<string></string>
 		<key>windowGestureEnabled</key>
 		<false/>
 		<key>windowGestureModifiers</key>
@@ -1370,6 +1530,8 @@
 		<string></string>
 		<key>windowLayoutIgnoredApps</key>
 		<array/>
+		<key>windowLayoutMarginPercent</key>
+		<real>5</real>
 		<key>windowLayoutScreenGap</key>
 		<integer>0</integer>
 		<key>windowLayoutShortcutBottom</key>
@@ -1468,7 +1630,7 @@
 		<array/>
 	</dict>
 	<key>vorssaintBackupAppVersion</key>
-	<string>3.4.0</string>
+	<string>3.4.1</string>
 	<key>vorssaintBackupVersion</key>
 	<integer>1</integer>
 </dict>
