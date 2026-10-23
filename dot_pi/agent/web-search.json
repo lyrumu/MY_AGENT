@@ -1,4 +1,5 @@
 {
   "tavilyApiKey": "!security find-generic-password -a \"$USER\" -ws 'tavily-api-key'",
-  "provider": "tavily"
+  "provider": "tavily",
+  "workflow": "summary-review"
 }

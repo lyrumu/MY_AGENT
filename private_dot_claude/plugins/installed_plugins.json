@@ -4,31 +4,31 @@
     "frontend-design@claude-plugins-official": [
       {
         "scope": "user",
-        "installPath": "/Users/lyrumu/.claude/plugins/cache/claude-plugins-official/frontend-design/8d392c816966",
-        "version": "8d392c816966",
+        "installPath": "/Users/lyrumu/.claude/plugins/cache/claude-plugins-official/frontend-design/a0b04d9ddcca",
+        "version": "a0b04d9ddcca",
         "installedAt": "2026-08-03T08:31:10.173Z",
-        "lastUpdated": "2026-10-14T01:05:53.824Z",
-        "gitCommitSha": "8d392c8169665866be1d95f2bfeda5aaae7149dd"
+        "lastUpdated": "2026-10-20T02:28:52.567Z",
+        "gitCommitSha": "a0b04d9ddccaabe1976645f68b0eda50f74e7022"
       }
     ],
     "context7@claude-plugins-official": [
       {
         "scope": "user",
-        "installPath": "/Users/lyrumu/.claude/plugins/cache/claude-plugins-official/context7/8d392c816966",
-        "version": "8d392c816966",
+        "installPath": "/Users/lyrumu/.claude/plugins/cache/claude-plugins-official/context7/a0b04d9ddcca",
+        "version": "a0b04d9ddcca",
         "installedAt": "2026-08-03T08:32:01.232Z",
-        "lastUpdated": "2026-10-14T01:05:53.824Z",
-        "gitCommitSha": "8d392c8169665866be1d95f2bfeda5aaae7149dd"
+        "lastUpdated": "2026-10-20T02:28:52.568Z",
+        "gitCommitSha": "a0b04d9ddccaabe1976645f68b0eda50f74e7022"
       }
     ],
     "ponytail@ponytail": [
       {
         "scope": "user",
-        "installPath": "/Users/lyrumu/.claude/plugins/cache/ponytail/ponytail/5.2.0",
-        "version": "5.2.0",
+        "installPath": "/Users/lyrumu/.claude/plugins/cache/ponytail/ponytail/5.3.2",
+        "version": "5.3.2",
         "installedAt": "2026-08-07T06:49:49.935Z",
-        "lastUpdated": "2026-10-14T01:05:53.823Z",
-        "gitCommitSha": "2961b52fc1fe6a5a87c7a959a79512e5c2f3ffe5"
+        "lastUpdated": "2026-10-20T02:28:52.566Z",
+        "gitCommitSha": "09c434ab73ca43761c5d8b0c5d341926c2fba710"
       }
     ],
     "mattpocock-skills@mattpocock": [
@@ -44,11 +44,11 @@
     "skill-creator@claude-plugins-official": [
       {
         "scope": "user",
-        "installPath": "/Users/lyrumu/.claude/plugins/cache/claude-plugins-official/skill-creator/8d392c816966",
-        "version": "8d392c816966",
+        "installPath": "/Users/lyrumu/.claude/plugins/cache/claude-plugins-official/skill-creator/a0b04d9ddcca",
+        "version": "a0b04d9ddcca",
         "installedAt": "2026-09-30T07:05:47.536Z",
-        "lastUpdated": "2026-10-14T01:05:53.824Z",
-        "gitCommitSha": "8d392c8169665866be1d95f2bfeda5aaae7149dd"
+        "lastUpdated": "2026-10-20T02:28:52.567Z",
+        "gitCommitSha": "a0b04d9ddccaabe1976645f68b0eda50f74e7022"
       }
     ]
   }

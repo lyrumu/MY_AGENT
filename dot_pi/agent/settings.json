@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.3.0",
+  "lastChangelogVersion": "1.4.0",
   "deviceId": "3ba4f8e3-32e0-41b5-99c4-1189d0c1c879",
   "packages": [
     "npm:pi-web-access"
@@ -29,7 +29,8 @@
     "deepseek/deepseek-flash",
     "zai/glm-5.3-flash",
     "zai/glm-5.3",
-    "xiaomi/mimo-v2.6-flash"
+    "xiaomi/mimo-v2.6-flash",
+    "xiaomi/mimo-v2.6-pro"
   ],
   "fullscreenExitOutput": "transcript",
   "fullscreenScrollbar": "always"

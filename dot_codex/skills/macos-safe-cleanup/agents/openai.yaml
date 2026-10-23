@@ -1,4 +1,4 @@
 interface:
   display_name: "macOS 安全清理"
-  short_description: "跨 Mac 动态排查临时文件、缓存与残留，确认精确路径后清理"
-  default_prompt: "使用 $macos-safe-cleanup 根据当前 Mac 的实际状态全面排查可清理残留，包括 Agent 和任务临时文件；在聊天列出精确路径、证据和影响，等我确认后再清理。"
+  short_description: "用于明确的系统清理与释放空间需求，确认路径后清理；不用于故障诊断"
+  default_prompt: "使用 $macos-safe-cleanup 帮我清理当前 Mac、释放磁盘空间；先盘点可清理的临时文件、缓存与残留，在聊天列出精确路径、证据和影响，等我确认后再清理。"
