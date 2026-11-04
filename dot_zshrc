@@ -40,3 +40,6 @@ opencode() {
   /Users/lyrumu/.local/bin/opencode-keychain "$@"
 }
 # END OpenCode Keychain launcher (managed)
+
+# mycli 默认以 root 免密连接本机 MySQL（root 为空密码）
+alias mycli='mycli -u root'

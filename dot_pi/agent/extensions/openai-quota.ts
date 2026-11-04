@@ -1,0 +1,273 @@
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { createInterface } from "node:readline";
+
+const STATUS_KEY = "openai-quota";
+const POLL_INTERVAL_MS = 5 * 60_000;
+const STARTUP_TIMEOUT_MS = 15_000;
+const REQUEST_TIMEOUT_MS = 15_000;
+const APP_SERVER = process.env.PI_QUOTA_CODEX_BIN || "codex";
+
+type Window = {
+	usedPercent?: number;
+	windowDurationMins?: number | null;
+	resetsAt?: number | null;
+};
+type Snapshot = {
+	limitId?: string | null;
+	limitName?: string | null;
+	primary?: Window | null;
+	secondary?: Window | null;
+	credits?: { balance?: number | null; hasCredits?: boolean | null } | null;
+};
+type QuotaResponse = {
+	rateLimits?: Snapshot;
+	rateLimitsByLimitId?: Record<string, Snapshot | undefined> | null;
+	rateLimitResetCredits?: { availableCount?: number | string | null } | null;
+	ordinaryUsageAllowed?: boolean | null;
+};
+type RpcMessage = {
+	id?: number;
+	method?: string;
+	params?: any;
+	result?: any;
+	error?: { message?: string; code?: number };
+};
+
+class CodexAppServer {
+	private child: ChildProcessWithoutNullStreams | undefined;
+	private nextId = 0;
+	private pending = new Map<number, { resolve: (value: any) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
+	private stopped = false;
+	private ready: Promise<void>;
+
+	constructor() {
+		this.ready = this.start();
+	}
+
+	private start(): Promise<void> {
+		return new Promise((resolve, reject) => {
+			const child = spawn(APP_SERVER, ["app-server", "--stdio"], {
+				stdio: ["pipe", "pipe", "pipe"],
+				windowsHide: true,
+			});
+			this.child = child;
+			const startupTimer = setTimeout(() => reject(new Error(`Timed out starting ${APP_SERVER} app-server`)), STARTUP_TIMEOUT_MS);
+			let settled = false;
+			const startupResolve = () => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(startupTimer);
+				resolve();
+			};
+			const startupReject = (error: Error) => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(startupTimer);
+				reject(error);
+			};
+
+			const lines = createInterface({ input: child.stdout });
+			lines.on("line", (line) => this.onLine(line, startupResolve, startupReject));
+			child.stderr.on("data", () => {}); // Never surface potentially sensitive CLI diagnostics in the TUI.
+			child.once("error", (error) => {
+				startupReject(new Error(`Could not start Codex app-server (${error.message})`));
+				this.failPending(error);
+			});
+			child.once("exit", (code, signal) => {
+				if (!this.stopped) {
+					const error = new Error(`Codex app-server exited (${signal ?? code ?? "unknown"})`);
+					startupReject(error);
+					this.failPending(error);
+				}
+			});
+
+			void this.request("initialize", {
+				clientInfo: { name: "pi-openai-quota", title: "Pi OpenAI quota", version: "1.0.0" },
+				capabilities: { experimentalApi: true, requestAttestation: false },
+			}).then(() => {
+				if (this.stopped) throw new Error("Codex app-server stopped");
+				child.stdin.write(JSON.stringify({ method: "initialized", params: {} }) + "\n");
+				startupResolve();
+			}).catch(startupReject);
+		});
+	}
+
+	private onLine(line: string, startupResolve: () => void, startupReject: (error: Error) => void): void {
+		if (!line.trim()) return;
+		let message: RpcMessage;
+		try {
+			message = JSON.parse(line) as RpcMessage;
+		} catch {
+			return;
+		}
+		if (message.id === undefined) return;
+		const pending = this.pending.get(message.id);
+		if (!pending) return;
+		clearTimeout(pending.timer);
+		this.pending.delete(message.id);
+		if (message.error) {
+			const error = new Error(message.error.message || `Codex RPC error ${message.error.code ?? ""}`);
+			pending.reject(error);
+			startupReject(error);
+		} else {
+			pending.resolve(message.result);
+			if (message.result?.userAgent) startupResolve();
+		}
+	}
+
+	private request(method: string, params: unknown): Promise<any> {
+		if (!this.child || this.stopped) return Promise.reject(new Error("Codex app-server is not running"));
+		const id = ++this.nextId;
+		return new Promise((resolve, reject) => {
+			const timer = setTimeout(() => {
+				this.pending.delete(id);
+				reject(new Error(`Codex RPC timed out: ${method}`));
+			}, REQUEST_TIMEOUT_MS);
+			this.pending.set(id, { resolve, reject, timer });
+			try {
+				this.child!.stdin.write(JSON.stringify({ method, id, params }) + "\n");
+			} catch (error) {
+				clearTimeout(timer);
+				this.pending.delete(id);
+				reject(error instanceof Error ? error : new Error(String(error)));
+			}
+		});
+	}
+
+	async readQuota(): Promise<QuotaResponse> {
+		await this.ready;
+		return this.request("account/rateLimits/read", { excludeResetCreditDetails: true }) as Promise<QuotaResponse>;
+	}
+
+	stop(): void {
+		this.stopped = true;
+		this.failPending(new Error("Codex app-server stopped"));
+		this.child?.kill("SIGTERM");
+		this.child = undefined;
+	}
+
+	private failPending(error: Error): void {
+		for (const pending of this.pending.values()) {
+			clearTimeout(pending.timer);
+			pending.reject(error);
+		}
+		this.pending.clear();
+	}
+}
+
+function displayDuration(minutes: number): string {
+	if (minutes === 300) return "5h";
+	if (minutes === 10080) return "周";
+	if (minutes >= 24 * 60 && minutes % (24 * 60) === 0) return `${minutes / (24 * 60)}d`;
+	if (minutes >= 60 && minutes % 60 === 0) return `${minutes / 60}h`;
+	return `${minutes}m`;
+}
+
+function formatWindow(window: Window | null | undefined, now: number): string | undefined {
+	if (!window || typeof window.usedPercent !== "number") return undefined;
+	const remaining = Math.max(0, Math.min(100, 100 - window.usedPercent));
+	const span = window.windowDurationMins ? displayDuration(window.windowDurationMins) : "limit";
+	const resets = window.resetsAt ? ` ↻${new Date(window.resetsAt * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "";
+	const stale = now - lastSuccessfulRead > POLL_INTERVAL_MS * 2 ? "*" : "";
+	return `${span} ${remaining.toFixed(0)}%${resets}${stale}`;
+}
+
+let lastSuccessfulRead = 0;
+
+function renderQuota(response: QuotaResponse, now: number): { compact: string; detail: string } {
+	const snapshot = response.rateLimitsByLimitId?.codex ?? response.rateLimits;
+	const primary = formatWindow(snapshot?.primary, now);
+	const secondary = formatWindow(snapshot?.secondary, now);
+	const parts = [primary, secondary].filter(Boolean) as string[];
+	if (!parts.length) throw new Error("Codex returned no quota windows");
+	const available = response.rateLimitResetCredits?.availableCount;
+	const resetCount = available === undefined || available === null ? "未知" : String(available);
+	const permission = response.ordinaryUsageAllowed === false ? "普通额度已耗尽" : "普通额度可用";
+	const compact = `OpenAI ${parts.join(" | ")}`;
+	const detail = [
+		`ChatGPT / Codex 额度（官方 Codex App Server）`,
+		...parts.map((part) => `• ${part}`),
+		`• 可用重置次数：${resetCount}`,
+		`• ${permission}`,
+		`• 数据更新时间：${new Date(now).toLocaleString()}`,
+		`• 额度与模型成本不是同一指标；百分比由 OpenAI 服务端返回。`,
+		...(now - lastSuccessfulRead > POLL_INTERVAL_MS * 2 ? [`• 状态栏 * 表示数据可能过期。`] : []),
+	].join("\n");
+	return { compact, detail };
+}
+
+export default function (pi: ExtensionAPI) {
+	let client: CodexAppServer | undefined;
+	let timer: ReturnType<typeof setInterval> | undefined;
+	let refreshing: Promise<void> | undefined;
+	let currentStatus: ((text: string) => void) | undefined;
+	let lastResult: QuotaResponse | undefined;
+	let lastError: string | undefined;
+
+	const setStatus = (ctx: { ui: { setStatus: (key: string, text: string) => void } }, text: string) => {
+		ctx.ui.setStatus(STATUS_KEY, text);
+	};
+
+	const refresh = (ctx: { ui: { setStatus: (key: string, text: string) => void; notify: (message: string, level?: "info" | "warning" | "error") => void } }, notifyOnError = false): Promise<void> => {
+		if (refreshing) return refreshing;
+		refreshing = (async () => {
+			try {
+				if (!client) client = new CodexAppServer();
+				const result = await client.readQuota();
+				const now = Date.now();
+				const rendered = renderQuota(result, now);
+				lastResult = result;
+				lastSuccessfulRead = now;
+				lastError = undefined;
+				currentStatus?.(rendered.compact);
+			} catch (error) {
+				lastError = error instanceof Error ? error.message : String(error);
+				const message = lastError.includes("ENOENT") || lastError.includes("not found")
+					? `未找到 Codex CLI（可设 PI_QUOTA_CODEX_BIN）；${lastError}`
+					: lastError;
+				currentStatus?.(`OpenAI quota: ${message}`);
+				if (notifyOnError) ctx.ui.notify(`OpenAI quota refresh failed: ${message}`, "warning");
+				client?.stop();
+				client = undefined;
+			}
+		})().finally(() => { refreshing = undefined; });
+		return refreshing;
+	};
+
+	pi.registerCommand("quota", {
+		description: "Show and refresh ChatGPT / Codex usage limits",
+		handler: async (_args, ctx) => {
+			await refresh(ctx, true);
+			if (lastResult) {
+				const rendered = renderQuota(lastResult, lastSuccessfulRead);
+				ctx.ui.notify(rendered.detail, "info");
+			} else if (lastError) {
+				ctx.ui.notify(`OpenAI quota unavailable: ${lastError}\nCheck that Codex CLI is installed and ` +
+					"`codex login status` reports ChatGPT login.", "warning");
+			}
+		},
+	});
+
+	pi.on("session_start", async (_event, ctx) => {
+		currentStatus = (text) => setStatus(ctx, text);
+		setStatus(ctx, "OpenAI quota: checking…");
+		await refresh(ctx);
+		timer = setInterval(() => { void refresh(ctx); }, POLL_INTERVAL_MS);
+	});
+
+	pi.on("after_provider_response", (event, ctx) => {
+		if (ctx.model?.provider === "openai") void refresh(ctx);
+	});
+
+	pi.on("session_shutdown", () => {
+		if (timer) clearInterval(timer);
+		timer = undefined;
+		client?.stop();
+		client = undefined;
+		currentStatus = undefined;
+		lastResult = undefined;
+		lastError = undefined;
+		lastSuccessfulRead = 0;
+	});
+}

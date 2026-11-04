@@ -1,0 +1,36 @@
+# ~/.myclirc —— mycli 2.30.x 个人配置（最小可用版）
+# 完整默认项可参考：$(brew --prefix mycli)/libexec/lib/python3.15/site-packages/mycli/myclirc
+
+[main]
+# 关键字大小写：auto 保留你输入的写法；也可填 upper / lower
+keyword_casing = auto
+# 语法高亮主题：default / monokai / solarized-dark / vim / pygments 等
+syntax_style = default
+# 多行输入：Alt+Enter 换行、Enter 执行（避免长 SQL 一行写完）
+multi_line = True
+# 结果表格风格：mysql_unicode / ascii / csv / vertical
+table_format = mysql_unicode
+# 宽表自动转为竖排
+auto_vertical_output = False
+# 执行后显示耗时
+timing = True
+# 命令历史与错误日志
+history_file = ~/.mycli-history
+log_file = ~/.mycli.log
+# 连接历史里把 path 当 host 记录（本机 socket 连接时更直观）
+login_path_as_host = False
+
+[connection]
+# 连接默认字符集，MySQL 8 / MariaDB 建议 utf8mb4
+default_character_set = utf8mb4
+# SSL 模式：auto（优先 SSL，失败回退）/ on / off
+default_ssl_mode = auto
+
+[keys]
+# Ctrl-R 反向搜索历史（需已安装 fzf，Homebrew 版本已作为依赖装好）
+control_r = auto
+
+[alias_dsn]
+# 把常用连接起别名，之后用：mycli --dsn local
+# 注意：明文密码会存在本文件，权限建议 chmod 600 ~/.myclirc
+# local = mysql://root@127.0.0.1:3306/mydb

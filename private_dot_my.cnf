@@ -1,0 +1,7 @@
+# 所有 MySQL 客户端（mysql / mycli / mysqldump）的默认连接参数
+# 新设备同步配置文件后 仍需要设置空密码才可以免密码使用
+[client]
+user = root
+host = 127.0.0.1
+port = 3306
+default-character-set = utf8mb4
