@@ -200,6 +200,8 @@ function renderQuota(response: QuotaResponse, now: number): { compact: string; d
 export default function (pi: ExtensionAPI) {
 	let client: CodexAppServer | undefined;
 	let timer: ReturnType<typeof setInterval> | undefined;
+	let retryTimer: ReturnType<typeof setTimeout> | undefined;
+	let retryDelayMs = 15_000;
 	let refreshing: Promise<void> | undefined;
 	let currentStatus: ((text: string) => void) | undefined;
 	let lastResult: QuotaResponse | undefined;
@@ -220,39 +222,59 @@ export default function (pi: ExtensionAPI) {
 				lastResult = result;
 				lastSuccessfulRead = now;
 				lastError = undefined;
+				retryDelayMs = 15_000;
+				if (retryTimer) clearTimeout(retryTimer);
+				retryTimer = undefined;
 				currentStatus?.(rendered.compact);
 			} catch (error) {
 				lastError = error instanceof Error ? error.message : String(error);
 				const message = lastError.includes("ENOENT") || lastError.includes("not found")
 					? `未找到 Codex CLI（可设 PI_QUOTA_CODEX_BIN）；${lastError}`
 					: lastError;
-				currentStatus?.(`OpenAI quota: ${message}`);
+				if (lastResult) {
+					const old = renderQuota(lastResult, lastSuccessfulRead);
+					currentStatus?.(`${old.compact} · 过期，重试中`);
+				} else {
+					currentStatus?.(`OpenAI quota: 暂不可用，重试中`);
+				}
 				if (notifyOnError) ctx.ui.notify(`OpenAI quota refresh failed: ${message}`, "warning");
 				client?.stop();
 				client = undefined;
+				if (!retryTimer) {
+					const delay = retryDelayMs;
+					retryDelayMs = Math.min(retryDelayMs * 2, POLL_INTERVAL_MS);
+					retryTimer = setTimeout(() => {
+						retryTimer = undefined;
+						void refresh(ctx);
+					}, delay);
+				}
 			}
 		})().finally(() => { refreshing = undefined; });
 		return refreshing;
 	};
 
 	pi.registerCommand("quota", {
-		description: "Show and refresh ChatGPT / Codex usage limits",
+		description: "Show and refresh ChatGPT / Codex usage limits (requires local Codex CLI installed and logged in)",
 		handler: async (_args, ctx) => {
 			await refresh(ctx, true);
 			if (lastResult) {
 				const rendered = renderQuota(lastResult, lastSuccessfulRead);
 				ctx.ui.notify(rendered.detail, "info");
 			} else if (lastError) {
-				ctx.ui.notify(`OpenAI quota unavailable: ${lastError}\nCheck that Codex CLI is installed and ` +
-					"`codex login status` reports ChatGPT login.", "warning");
+				ctx.ui.notify(`OpenAI quota unavailable: ${lastError}\nThis feature requires the Codex CLI to be installed on this machine and logged in with ChatGPT. Check with ` +
+					"`codex login status`.", "warning");
 			}
 		},
 	});
 
-	pi.on("session_start", async (_event, ctx) => {
+	pi.on("session_start", (_event, ctx) => {
+		// Never await quota work here: Pi awaits session_start handlers before the editor accepts
+		// input, so a slow Codex app-server spawn would delay every startup.
 		currentStatus = (text) => setStatus(ctx, text);
 		setStatus(ctx, "OpenAI quota: checking…");
-		await refresh(ctx);
+		setTimeout(() => {
+			void refresh(ctx);
+		}, 0);
 		timer = setInterval(() => { void refresh(ctx); }, POLL_INTERVAL_MS);
 	});
 
@@ -262,7 +284,9 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("session_shutdown", () => {
 		if (timer) clearInterval(timer);
+		if (retryTimer) clearTimeout(retryTimer);
 		timer = undefined;
+		retryTimer = undefined;
 		client?.stop();
 		client = undefined;
 		currentStatus = undefined;

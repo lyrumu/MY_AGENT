@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.4.0",
+  "lastChangelogVersion": "1.5.0",
   "deviceId": "3ba4f8e3-32e0-41b5-99c4-1189d0c1c879",
   "packages": [
     "npm:pi-web-access"
@@ -33,5 +33,8 @@
     "xiaomi/mimo-v2.6-pro"
   ],
   "fullscreenExitOutput": "transcript",
-  "fullscreenScrollbar": "always"
+  "fullscreenScrollbar": "always",
+  "extensionChangelogVersions": {
+    "{\"source\":\"npm:pi-web-access\",\"scope\":\"user\"}": "0.46.0"
+  }
 }

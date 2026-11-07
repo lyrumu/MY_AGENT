@@ -1,0 +1,60 @@
+# Clash Verge DNS Config
+#
+# ⚠️ 当前不生效：本目录的 verge.yaml 里 profile_dns_settings 会被 Verge 在重启时
+#    重置为 false，因此这份文件不会进入最终配置。
+#
+# ✅ 实际生效的 DNS 配置在 profiles/Script.js 末尾，由全局脚本注入
+#    （源码顺序：apply_dns_settings 在前，global_script 在后，注入不会被覆盖）。
+#
+# 保留本文件的目的：若将来 Clash Verge 修复了 profile_dns_settings 的重置行为，
+# 或你手动在 UI 中开启「DNS 覆盖」，这里的内容应当与 Script.js 中的保持一致。
+
+dns:
+  enable: true
+  ipv6: false
+  listen: :53
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter-mode: blacklist
+  prefer-h3: false
+  respect-rules: false
+  use-hosts: false
+  use-system-hosts: false
+
+  fake-ip-filter:
+    - '*.lan'
+    - '*.local'
+    - '*.arpa'
+    - time.*.com
+    - ntp.*.com
+    - localhost.ptlogin2.qq.com
+    - '*.msftncsi.com'
+    - www.msftconnecttest.com
+
+  # 用于解析 DoH 服务器自身的域名，必须是可直连的 IP
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+
+  # DoH(TCP 443) 与 国内UDP(53) 并存，并发择优，互为冗余
+  nameserver:
+    - https://doh.pub/dns-query
+    - https://dns.alidns.com/dns-query
+    - 223.5.5.5
+    - 119.29.29.29
+
+  fallback: []
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+
+  nameserver-policy: {}
+
+  proxy-server-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+
+  direct-nameserver: []
+  direct-nameserver-follow-policy: false
+
+hosts: {}
