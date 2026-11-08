@@ -36,5 +36,6 @@
   "fullscreenScrollbar": "always",
   "extensionChangelogVersions": {
     "{\"source\":\"npm:pi-web-access\",\"scope\":\"user\"}": "0.46.0"
-  }
+  },
+  "hideThinkingBlock": true
 }

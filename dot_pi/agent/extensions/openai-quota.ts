@@ -3,6 +3,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 
 const STATUS_KEY = "openai-quota";
+const STATE_TYPE = "openai-quota-state";
 const POLL_INTERVAL_MS = 5 * 60_000;
 const STARTUP_TIMEOUT_MS = 15_000;
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -203,15 +204,46 @@ export default function (pi: ExtensionAPI) {
 	let retryTimer: ReturnType<typeof setTimeout> | undefined;
 	let retryDelayMs = 15_000;
 	let refreshing: Promise<void> | undefined;
-	let currentStatus: ((text: string) => void) | undefined;
+	let currentStatus: ((text: string | undefined) => void) | undefined;
 	let lastResult: QuotaResponse | undefined;
 	let lastError: string | undefined;
+	// Quota poll the OpenAI usage endpoint, so it stays off unless the user asks for it.
+	// The toggle is stored per session so a reopened session keeps its previous state.
+	let enabled = process.env.PI_QUOTA_AUTOSTART === "1";
 
-	const setStatus = (ctx: { ui: { setStatus: (key: string, text: string) => void } }, text: string) => {
+	const restoreState = (ctx: { sessionManager: { getBranch: () => readonly any[] } }): void => {
+		enabled = process.env.PI_QUOTA_AUTOSTART === "1";
+		for (const entry of ctx.sessionManager.getBranch()) {
+			if (entry?.type !== "custom" || entry.customType !== STATE_TYPE) continue;
+			const stored = entry.data as { enabled?: unknown } | undefined;
+			if (typeof stored?.enabled === "boolean") enabled = stored.enabled;
+		}
+	};
+
+	const setStatus = (ctx: { ui: { setStatus: (key: string, text: string | undefined) => void } }, text: string | undefined) => {
 		ctx.ui.setStatus(STATUS_KEY, text);
 	};
 
-	const refresh = (ctx: { ui: { setStatus: (key: string, text: string) => void; notify: (message: string, level?: "info" | "warning" | "error") => void } }, notifyOnError = false): Promise<void> => {
+	const stopPolling = (clearStatus: boolean) => {
+		if (timer) clearInterval(timer);
+		if (retryTimer) clearTimeout(retryTimer);
+		timer = undefined;
+		retryTimer = undefined;
+		client?.stop();
+		client = undefined;
+		retryDelayMs = 15_000;
+		if (clearStatus) currentStatus?.(undefined);
+	};
+
+	const startPolling = (ctx: { ui: { setStatus: (key: string, text: string | undefined) => void; notify: (message: string, level?: "info" | "warning" | "error") => void } }) => {
+		if (timer) return;
+		currentStatus?.(`OpenAI quota: checking…`);
+		setTimeout(() => { void refresh(ctx); }, 0);
+		timer = setInterval(() => { void refresh(ctx); }, POLL_INTERVAL_MS);
+	};
+
+	const refresh = (ctx: { ui: { setStatus: (key: string, text: string | undefined) => void; notify: (message: string, level?: "info" | "warning" | "error") => void } }, notifyOnError = false): Promise<void> => {
+		if (!enabled) return Promise.resolve();
 		if (refreshing) return refreshing;
 		refreshing = (async () => {
 			try {
@@ -254,12 +286,22 @@ export default function (pi: ExtensionAPI) {
 	};
 
 	pi.registerCommand("quota", {
-		description: "Show and refresh ChatGPT / Codex usage limits (requires local Codex CLI installed and logged in)",
+		description: "Toggle OpenAI quota display on/off (requires local Codex CLI installed and logged in)",
 		handler: async (_args, ctx) => {
+			enabled = !enabled;
+			if (!enabled) {
+				stopPolling(true);
+				pi.appendEntry(STATE_TYPE, { enabled: false });
+				ctx.ui.notify("OpenAI 额度显示已关闭。再次输入 /quota 可重新开启。", "info");
+				return;
+			}
+			pi.appendEntry(STATE_TYPE, { enabled: true });
+			currentStatus = (text) => setStatus(ctx, text);
+			startPolling(ctx);
 			await refresh(ctx, true);
 			if (lastResult) {
 				const rendered = renderQuota(lastResult, lastSuccessfulRead);
-				ctx.ui.notify(rendered.detail, "info");
+				ctx.ui.notify(`OpenAI 额度显示已开启。\n${rendered.detail}`, "info");
 			} else if (lastError) {
 				ctx.ui.notify(`OpenAI quota unavailable: ${lastError}\nThis feature requires the Codex CLI to be installed on this machine and logged in with ChatGPT. Check with ` +
 					"`codex login status`.", "warning");
@@ -271,24 +313,22 @@ export default function (pi: ExtensionAPI) {
 		// Never await quota work here: Pi awaits session_start handlers before the editor accepts
 		// input, so a slow Codex app-server spawn would delay every startup.
 		currentStatus = (text) => setStatus(ctx, text);
-		setStatus(ctx, "OpenAI quota: checking…");
-		setTimeout(() => {
-			void refresh(ctx);
-		}, 0);
-		timer = setInterval(() => { void refresh(ctx); }, POLL_INTERVAL_MS);
+		restoreState(ctx);
+		if (enabled) startPolling(ctx);
 	});
 
-	pi.on("after_provider_response", (event, ctx) => {
-		if (ctx.model?.provider === "openai") void refresh(ctx);
+	pi.on("session_tree", (_event, ctx) => {
+		stopPolling(true);
+		restoreState(ctx);
+		if (enabled) startPolling(ctx);
+	});
+
+	pi.on("after_provider_response", (_event, ctx) => {
+		if (enabled && ctx.model?.provider === "openai") void refresh(ctx);
 	});
 
 	pi.on("session_shutdown", () => {
-		if (timer) clearInterval(timer);
-		if (retryTimer) clearTimeout(retryTimer);
-		timer = undefined;
-		retryTimer = undefined;
-		client?.stop();
-		client = undefined;
+		stopPolling(false);
 		currentStatus = undefined;
 		lastResult = undefined;
 		lastError = undefined;
