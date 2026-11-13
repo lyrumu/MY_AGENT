@@ -1,0 +1,13 @@
+# ---- 本地化与时区（可选，纯本机显示层面；删除本文件即可完全复原）----
+# 影响范围：所有 zsh 调用（交互式 + 非交互式脚本）及其子进程
+# 注意：不设 LC_ALL，以便后续仍可单独覆盖 LC_TIME / LC_COLLATE 等分类
+export LANG=en_CA.UTF-8
+export TZ=America/Toronto
+
+# ---- pi / 国内模型直连白名单 ----
+# 影响范围：所有 zsh 调用及其子进程
+# 目的：pi 设置了 httpProxy(eq 127.0.0.1:7897)，undici 的 EnvHttpProxyAgent 会读 NO_PROXY，
+#       命中白名单的域名直连，不经过 Clash；只有 chatgpt.com / auth.openai.com 才走节点。
+# 加新 provider 时，把它的国内端点域名追加到这里（只写域名，不带 https://）
+export NO_PROXY="api.deepseek.com,api.xiaomimimo.com,token-plan-cn.xiaomimimo.com,token-plan-sgp.xiaomimimo.com,open.bigmodel.cn,api.z.ai,localhost,127.0.0.1"
+export no_proxy="$NO_PROXY"

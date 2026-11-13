@@ -1,5 +1,9 @@
 # Warm paper: subtle apricot background and dark ink.
+# 主字体没有中文字形，显式钉住中文回退字体，避免 CoreText 在进程重启后
+# 把中文回退到繁体/日文面（PingFang TC / Hiragino Sans 等，笔画规范不同）。
+# 删掉下面这行即恢复成系统自动回退。
 font-family = JetBrainsMono Nerd Font Mono
+font-family = PingFang SC
 font-size = 20
 background = #f3e7da
 foreground = #3b332d

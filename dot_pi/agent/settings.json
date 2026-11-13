@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.5.0",
+  "lastChangelogVersion": "1.5.2",
   "deviceId": "3ba4f8e3-32e0-41b5-99c4-1189d0c1c879",
   "packages": [
     "npm:pi-web-access"
@@ -22,6 +22,7 @@
     "zai/glm-5.3-flash": "low",
     "xiaomi/mimo-v2.6-flash": "low"
   },
+  "httpProxy": "http://127.0.0.1:7897",
   "tuiMode": "fullscreen",
   "defaultProvider": "deepseek",
   "defaultModel": "deepseek-flash",
@@ -30,12 +31,16 @@
     "zai/glm-5.3-flash",
     "zai/glm-5.3",
     "xiaomi/mimo-v2.6-flash",
-    "xiaomi/mimo-v2.6-pro"
+    "xiaomi/mimo-v2.6-pro",
+    "openai-codex/gpt-5.6-sol",
+    "openai-codex/gpt-6-luna",
+    "openai-codex/gpt-6.1-sol",
+    "openai-codex/gpt-6.1-terra"
   ],
   "fullscreenExitOutput": "transcript",
   "fullscreenScrollbar": "always",
   "extensionChangelogVersions": {
-    "{\"source\":\"npm:pi-web-access\",\"scope\":\"user\"}": "0.46.0"
+    "{\"source\":\"npm:pi-web-access\",\"scope\":\"user\"}": "0.47.0"
   },
   "hideThinkingBlock": true
 }

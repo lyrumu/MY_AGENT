@@ -7,26 +7,36 @@
 
 function main(config, profileName) {
   const directRules = [
-    // ── Edge 浏览器：只保留“国内直连确实快”的少数域名 ──
-    // 实测方法：同一域名分别直连 / 走节点测延迟，取更快的一边。
+    // ── Edge 浏览器 ──
     //
-    // 注意 bing.com：早期 mihomo 的 DNS 段被禁用（dns=None）时，直连会 TLS 握手失败；
-    // 现在 DNS 已在脚本末尾注入并生效，直连恢复正常（实测 0.22s，优于走代理 1~5s）。
+    // 原则：基础可用性 > 速度。Edge 新标签页必须能打开，不能依赖代理节点存活。
+    //
+    // msn.com 直连较慢（公司网下 2~8s，家宽通常更快），但必须直连：
+    // 若走代理，节点一挂 Edge 新标签页就完全打不开，这是可用性问题。
+    // 建议同时关闭 Edge 新标签页的资讯流，这样几乎不会请求 msn.com。
+    'DOMAIN-SUFFIX,msn.com,DIRECT',
+    'DOMAIN-SUFFIX,msn.cn,DIRECT',
+    'DOMAIN-SUFFIX,msftstatic.com,DIRECT',
+
+    // bing.com 整体直连（DNS 修好后 DIRECT 解析正常，实测 0.22s）
     'DOMAIN-SUFFIX,bing.com,DIRECT',
     'DOMAIN,ecn.dev.virtualearth.net,DIRECT',
     'DOMAIN-SUFFIX,msftconnecttest.com,DIRECT',
     'DOMAIN-SUFFIX,msftncsi.com,DIRECT',
 
-    // ── 以下绝对不能直连（国内直连极慢），保持走代理 ──
-    //   msn.com / msn.cn          直连 4.3s       代理 0.22s
-    //   assets.msn.com            直连 2.9s       代理 0.11s
-    //   datadoghq.com             直连 3.7s       代理 0.31s
-    //   scorecardresearch.com     直连 0.34s      代理 0.26s
-    //   edge.microsoft.com        直连 0.22s      代理 0.11s
-    //   config.edge.skype.com     直连 0.34s      代理 0.10s
-    //   edgeupdates.microsoft.com 直连 5.3s       代理 0.10s
-    //   microsoftonline.com       直连 超时      代理 0.71s
-    //   www.microsoft.com         直连 3.5s       代理 0.13s
+    // 微软 / Edge 自身服务：实测直连全部可用（0.3~1.0s），不依赖节点
+    'DOMAIN,edge.microsoft.com,DIRECT',
+    'DOMAIN,edgeupdates.microsoft.com,DIRECT',
+    'DOMAIN,config.edge.skype.com,DIRECT',
+    'DOMAIN-SUFFIX,microsoftonline.com,DIRECT',
+    'DOMAIN,www.microsoft.com,DIRECT',
+    'DOMAIN,www.office.com,DIRECT',
+    'DOMAIN,login.live.com,DIRECT',
+
+    // 仍保持走代理的（实测直连确实不可用）
+    //   onedrive.live.com           直连不通
+    //   edgeassets.microsoft.com    直连不通
+    //   msedge.api.cdp.microsoft.com 直连不通
 
     // ── 豆包 ──
     'DOMAIN-SUFFIX,doubao.com,DIRECT',
@@ -60,6 +70,15 @@ function main(config, profileName) {
     'DOMAIN-SUFFIX,zjcdn.com,DIRECT',
     'DOMAIN-SUFFIX,ixigua.com,DIRECT',
     'DOMAIN-SUFFIX,toutiao.com,DIRECT',
+
+    // ── 全局国内兜底（放在数组末尾，优先级低于上面的具体域名）──
+    // 目的：无论用哪个订阅（包括自建的极简 profile），国内站点都必须直连，
+    // 不依赖订阅作者是否写了国内分流规则，也不受代理节点存活影响。
+    //
+    // 顺序即速度：纯后缀匹配 → 域名库 → IP 判断（需 DNS 解析，最慢）
+    'DOMAIN-SUFFIX,cn,DIRECT',
+    'GEOSITE,cn,DIRECT',
+    'GEOIP,CN,DIRECT',
   ];
 
   const rules = config.rules || [];
