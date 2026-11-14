@@ -88,6 +88,31 @@ function main(config, profileName) {
   // 插到规则最前面，保证优先于订阅自带的 MATCH 兜底
   config.rules = toAdd.concat(rules);
 
+  // ── 统一代理组健康检查 ──
+  // 只规范 url-test / fallback：保留订阅已有的更短周期和自定义测速地址，
+  // 但修正明文 gstatic 测速，并限制过长的检查周期与失败恢复时间。
+  const healthCheckGroups = config['proxy-groups'] || [];
+  for (const group of healthCheckGroups) {
+    if (!['url-test', 'fallback'].includes(group.type)) continue;
+
+    if ([
+      'http://www.gstatic.com/generate_204',
+      'https://www.gstatic.com/generate_204',
+      'http://cp.cloudflare.com/generate_204',
+      'https://cp.cloudflare.com/generate_204',
+    ].includes(group.url)) {
+      group.url = 'https://cp.cloudflare.com/generate_204';
+      group['expected-status'] = 204;
+    }
+
+    if (group.interval == null || group.interval > 1800) group.interval = 1800;
+    if (group.timeout == null || group.timeout > 5000) group.timeout = 5000;
+    if (group['max-failed-times'] == null || group['max-failed-times'] > 3) {
+      group['max-failed-times'] = 3;
+    }
+    if (group.type === 'url-test' && group.tolerance == null) group.tolerance = 50;
+  }
+
   // ── 强制注入 DNS ──
   // 原因：Verge 的 profile_dns_settings 会在重启时被重置为 false，
   // 导致 dns_config.yaml 不生效（内核 dns=None → root 进程系统解析不稳定）。
@@ -122,7 +147,12 @@ function main(config, profileName) {
     ],
     fallback: [],
     'fallback-filter': { geoip: true, 'geoip-code': 'CN' },
-    'nameserver-policy': {},
+    // Edge NTP 的 Akamai CDN 对 DNS 出口敏感：阿里 DNS / 部分 DoH 偶尔返回
+    // 当前网络不可达的 104.* 地址，导致冷启动空白 10~15 秒后才重试。
+    // 仅固定 ntp.msn.com，两个上游均实测稳定返回可达的中国边缘节点。
+    'nameserver-policy': {
+      'ntp.msn.com': ['119.29.29.29', '114.114.114.114'],
+    },
     'proxy-server-nameserver': ['223.5.5.5', '119.29.29.29'],
     'direct-nameserver': [],
     'direct-nameserver-follow-policy': false,

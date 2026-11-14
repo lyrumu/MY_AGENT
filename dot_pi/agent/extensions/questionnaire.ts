@@ -12,6 +12,8 @@ import {
 	Key,
 	matchesKey,
 	Text,
+	truncateToWidth,
+	type TuiMouseEvent,
 	visibleWidth,
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
@@ -113,6 +115,8 @@ export default function questionnaire(pi: ExtensionAPI) {
 				let optionIndex = 0;
 				let inputMode = false;
 				let inputQuestionId: string | null = null;
+				let collapsed = false;
+				let cachedWidth: number | undefined;
 				let cachedLines: string[] | undefined;
 				const answers = new Map<string, Answer>();
 
@@ -131,8 +135,14 @@ export default function questionnaire(pi: ExtensionAPI) {
 
 				// Helpers
 				function refresh() {
+					cachedWidth = undefined;
 					cachedLines = undefined;
 					tui.requestRender();
+				}
+
+				function toggleCollapsed() {
+					collapsed = !collapsed;
+					refresh();
 				}
 
 				function submit(cancelled: boolean) {
@@ -187,6 +197,15 @@ export default function questionnaire(pi: ExtensionAPI) {
 				};
 
 				function handleInput(data: string) {
+					if (collapsed) {
+						if (matchesKey(data, Key.enter) || matchesKey(data, Key.space)) {
+							toggleCollapsed();
+						} else if (matchesKey(data, Key.escape)) {
+							submit(true);
+						}
+						return;
+					}
+
 					// Input mode: route to editor
 					if (inputMode) {
 						if (matchesKey(data, Key.escape)) {
@@ -263,11 +282,36 @@ export default function questionnaire(pi: ExtensionAPI) {
 					}
 				}
 
+				function handleMouse(event: TuiMouseEvent) {
+					if (event.button !== "left" || event.y !== 0) return undefined;
+					if (event.type === "press") return { handled: true, focus: true };
+					if (event.type === "click") {
+						toggleCollapsed();
+						return { handled: true };
+					}
+					return undefined;
+				}
+
 				function render(width: number): string[] {
-					if (cachedLines) return cachedLines;
+					if (cachedLines && cachedWidth === width) return cachedLines;
 
 					const lines: string[] = [];
 					const renderWidth = Math.max(1, width);
+					cachedWidth = width;
+
+					function renderToggle(label: string) {
+						const text = truncateToWidth(label, renderWidth, "");
+						const padding = Math.max(0, renderWidth - visibleWidth(text));
+						const left = Math.floor(padding / 2);
+						const right = padding - left;
+						return theme.bg("selectedBg", theme.fg("text", `${" ".repeat(left)}${text}${" ".repeat(right)}`));
+					}
+
+					if (collapsed) {
+						cachedLines = [renderToggle("▶ 展开问题")];
+						return cachedLines;
+					}
+
 					const q = currentQuestion();
 					const opts = currentOptions();
 
@@ -288,6 +332,7 @@ export default function questionnaire(pi: ExtensionAPI) {
 						}
 					}
 
+					lines.push(renderToggle("▼ 收起以查看上方内容"));
 					lines.push(theme.fg("accent", "─".repeat(renderWidth)));
 
 					// Tab bar (multi-question only)
@@ -387,10 +432,14 @@ export default function questionnaire(pi: ExtensionAPI) {
 				return {
 					render,
 					invalidate: () => {
+						cachedWidth = undefined;
 						cachedLines = undefined;
 					},
 					handleInput,
+					handleMouse,
 				};
+			}, {
+				blocked: { kind: "question", message: "Waiting for questionnaire answers" },
 			});
 
 			if (result.cancelled) {
