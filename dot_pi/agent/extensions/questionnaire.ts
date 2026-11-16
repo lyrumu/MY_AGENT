@@ -9,12 +9,16 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	Editor,
 	type EditorTheme,
+	isKeyRelease,
 	Key,
 	matchesKey,
+	MouseRegion,
+	ScrollView,
 	Text,
 	truncateToWidth,
 	type TuiMouseEvent,
 	visibleWidth,
+	VStack,
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
@@ -73,6 +77,48 @@ const QuestionnaireParams = Type.Object({
 	questions: Type.Array(QuestionSchema, { description: "Questions to ask the user" }),
 });
 
+/** Pi 1.5.2's editor slot is a plain Container, which otherwise flattens nested ScrollViews. */
+function enableEditorSlotLayout(tui: unknown) {
+	const renderer = tui as { children?: Array<{ children?: unknown[]; [key: symbol]: unknown }>; getFocusedComponent?: () => unknown };
+	const focused = renderer.getFocusedComponent?.();
+	const slot = renderer.children?.find((component) => component.children?.includes(focused));
+	if (!slot) return;
+
+	const probe = new VStack();
+	let prototype: object | null = Object.getPrototypeOf(probe);
+	let layoutSymbol: symbol | undefined;
+	while (prototype && !layoutSymbol) {
+		for (const symbol of Object.getOwnPropertySymbols(prototype)) {
+			const candidate = (prototype as Record<symbol, unknown>)[symbol];
+			if (typeof candidate !== "function") continue;
+			try {
+				const node = (candidate as () => { type?: string }).call(probe);
+				if (node?.type === "vstack") {
+					layoutSymbol = symbol;
+					break;
+				}
+			} catch {
+				// Not the layout-node method.
+			}
+		}
+		prototype = Object.getPrototypeOf(prototype);
+	}
+	if (!layoutSymbol || typeof slot[layoutSymbol] === "function") return;
+
+	Object.defineProperty(slot, layoutSymbol, {
+		configurable: true,
+		value() {
+			const children = (this as { children?: unknown[] }).children ?? [];
+			return {
+				type: "vstack",
+				entries: children.map((component) => ({ component, shrink: 1, minSize: 0 })),
+				gap: 0,
+				align: "stretch",
+			};
+		},
+	});
+}
+
 function errorResult(
 	message: string,
 	questions: Question[] = [],
@@ -110,13 +156,19 @@ export default function questionnaire(pi: ExtensionAPI) {
 			const totalTabs = questions.length + 1; // questions + Submit
 
 			const result = await ctx.ui.custom<QuestionnaireResult>((tui, theme, _kb, done) => {
+				enableEditorSlotLayout(tui);
 				// State
 				let currentTab = 0;
 				let optionIndex = 0;
+				let unsubscribeTerminalInput = () => {};
 				let inputMode = false;
 				let inputQuestionId: string | null = null;
 				let collapsed = false;
+				let scrollView: ScrollView | undefined;
+				let focusRow: number | undefined;
+				let followFocus = false;
 				let cachedWidth: number | undefined;
+				let cachedRows: number | undefined;
 				let cachedLines: string[] | undefined;
 				const answers = new Map<string, Answer>();
 
@@ -136,16 +188,23 @@ export default function questionnaire(pi: ExtensionAPI) {
 				// Helpers
 				function refresh() {
 					cachedWidth = undefined;
+					cachedRows = undefined;
 					cachedLines = undefined;
 					tui.requestRender();
 				}
 
+				function scrollBy(lines: number) {
+					scrollView?.scrollBy(lines);
+				}
+
 				function toggleCollapsed() {
 					collapsed = !collapsed;
+					if (!collapsed) followFocus = true;
 					refresh();
 				}
 
 				function submit(cancelled: boolean) {
+					unsubscribeTerminalInput();
 					done({ questions, answers: Array.from(answers.values()), cancelled });
 				}
 
@@ -178,6 +237,8 @@ export default function questionnaire(pi: ExtensionAPI) {
 						currentTab = questions.length; // Submit tab
 					}
 					optionIndex = 0;
+					scrollView?.scrollToStart();
+					followFocus = false;
 					refresh();
 				}
 
@@ -206,6 +267,15 @@ export default function questionnaire(pi: ExtensionAPI) {
 						return;
 					}
 
+					if (matchesKey(data, Key.pageUp)) {
+						scrollBy(-Math.max(1, (scrollView?.viewportHeight ?? 1) - 1));
+						return;
+					}
+					if (matchesKey(data, Key.pageDown)) {
+						scrollBy(Math.max(1, (scrollView?.viewportHeight ?? 1) - 1));
+						return;
+					}
+
 					// Input mode: route to editor
 					if (inputMode) {
 						if (matchesKey(data, Key.escape)) {
@@ -228,12 +298,16 @@ export default function questionnaire(pi: ExtensionAPI) {
 						if (matchesKey(data, Key.tab) || matchesKey(data, Key.right)) {
 							currentTab = (currentTab + 1) % totalTabs;
 							optionIndex = 0;
+							scrollView?.scrollToStart();
+							followFocus = false;
 							refresh();
 							return;
 						}
 						if (matchesKey(data, Key.shift("tab")) || matchesKey(data, Key.left)) {
 							currentTab = (currentTab - 1 + totalTabs) % totalTabs;
 							optionIndex = 0;
+							scrollView?.scrollToStart();
+							followFocus = false;
 							refresh();
 							return;
 						}
@@ -252,11 +326,13 @@ export default function questionnaire(pi: ExtensionAPI) {
 					// Option navigation
 					if (matchesKey(data, Key.up)) {
 						optionIndex = Math.max(0, optionIndex - 1);
+						followFocus = true;
 						refresh();
 						return;
 					}
 					if (matchesKey(data, Key.down)) {
 						optionIndex = Math.min(opts.length - 1, optionIndex + 1);
+						followFocus = true;
 						refresh();
 						return;
 					}
@@ -268,6 +344,7 @@ export default function questionnaire(pi: ExtensionAPI) {
 							inputMode = true;
 							inputQuestionId = q.id;
 							editor.setText("");
+							followFocus = true;
 							refresh();
 							return;
 						}
@@ -282,6 +359,27 @@ export default function questionnaire(pi: ExtensionAPI) {
 					}
 				}
 
+				const navigationKeys = [
+					Key.pageUp,
+					Key.pageDown,
+					Key.up,
+					Key.down,
+					Key.left,
+					Key.right,
+					Key.tab,
+					Key.shift("tab"),
+					Key.enter,
+					Key.escape,
+					Key.space,
+				];
+				unsubscribeTerminalInput = ctx.ui.onTerminalInput((data) => {
+					if (isKeyRelease(data)) return undefined;
+					const isMouse = /^\x1b\[<\d+;\d+;\d+[Mm]$/.test(data) || (data.length === 6 && data.startsWith("\x1b[M"));
+					if (isMouse || (!inputMode && !navigationKeys.some((key) => matchesKey(data, key)))) return undefined;
+					handleInput(data);
+					return { consume: true };
+				});
+
 				function handleMouse(event: TuiMouseEvent) {
 					if (event.button !== "left" || event.y !== 0) return undefined;
 					if (event.type === "press") return { handled: true, focus: true };
@@ -293,11 +391,14 @@ export default function questionnaire(pi: ExtensionAPI) {
 				}
 
 				function render(width: number): string[] {
-					if (cachedLines && cachedWidth === width) return cachedLines;
+					const terminalRows = tui.terminal.rows;
+					if (cachedLines && cachedWidth === width && cachedRows === terminalRows) return cachedLines;
 
-					const lines: string[] = [];
+					const bodyLines: string[] = [];
 					const renderWidth = Math.max(1, width);
 					cachedWidth = width;
+					cachedRows = terminalRows;
+					focusRow = undefined;
 
 					function renderToggle(label: string) {
 						const text = truncateToWidth(label, renderWidth, "");
@@ -316,7 +417,7 @@ export default function questionnaire(pi: ExtensionAPI) {
 					const opts = currentOptions();
 
 					function addWrapped(text: string) {
-						lines.push(...wrapTextWithAnsi(text, renderWidth));
+						bodyLines.push(...wrapTextWithAnsi(text, renderWidth));
 					}
 
 					function addWrappedWithPrefix(prefix: string, text: string) {
@@ -328,12 +429,11 @@ export default function questionnaire(pi: ExtensionAPI) {
 						const wrapped = wrapTextWithAnsi(text, renderWidth - prefixWidth);
 						const continuationPrefix = " ".repeat(prefixWidth);
 						for (let i = 0; i < wrapped.length; i++) {
-							lines.push(`${i === 0 ? prefix : continuationPrefix}${wrapped[i]}`);
+							bodyLines.push(`${i === 0 ? prefix : continuationPrefix}${wrapped[i]}`);
 						}
 					}
 
-					lines.push(renderToggle("▼ 收起以查看上方内容"));
-					lines.push(theme.fg("accent", "─".repeat(renderWidth)));
+					bodyLines.push(theme.fg("accent", "─".repeat(renderWidth)));
 
 					// Tab bar (multi-question only)
 					if (isMulti) {
@@ -356,7 +456,7 @@ export default function questionnaire(pi: ExtensionAPI) {
 							: theme.fg(canSubmit ? "success" : "dim", submitText);
 						tabs.push(`${submitStyled} →`);
 						addWrappedWithPrefix(" ", tabs.join(""));
-						lines.push("");
+						bodyLines.push("");
 					}
 
 					// Helper to render options list
@@ -368,6 +468,7 @@ export default function questionnaire(pi: ExtensionAPI) {
 							const prefix = selected ? theme.fg("accent", "> ") : "  ";
 							const label = `${i + 1}. ${opt.label}${isOther && inputMode ? " ✎" : ""}`;
 							const color = selected || (isOther && inputMode) ? "accent" : "text";
+							if (selected) focusRow = bodyLines.length;
 
 							addWrappedWithPrefix(prefix, theme.fg(color, label));
 							if (opt.description) {
@@ -379,19 +480,20 @@ export default function questionnaire(pi: ExtensionAPI) {
 					// Content
 					if (inputMode && q) {
 						addWrappedWithPrefix(" ", theme.fg("text", q.prompt));
-						lines.push("");
+						bodyLines.push("");
 						// Show options for reference
 						renderOptions();
-						lines.push("");
+						bodyLines.push("");
 						addWrappedWithPrefix(" ", theme.fg("muted", "Your answer:"));
+						focusRow = bodyLines.length;
 						for (const line of editor.render(Math.max(1, renderWidth - 2))) {
-							lines.push(` ${line}`);
+							bodyLines.push(` ${line}`);
 						}
-						lines.push("");
+						bodyLines.push("");
 						addWrappedWithPrefix(" ", theme.fg("dim", "Enter to submit • Esc to cancel"));
 					} else if (currentTab === questions.length) {
 						addWrappedWithPrefix(" ", theme.fg("accent", theme.bold("Ready to submit")));
-						lines.push("");
+						bodyLines.push("");
 						for (const question of questions) {
 							const answer = answers.get(question.id);
 							if (answer) {
@@ -400,7 +502,7 @@ export default function questionnaire(pi: ExtensionAPI) {
 								addWrappedWithPrefix(" ", summary);
 							}
 						}
-						lines.push("");
+						bodyLines.push("");
 						if (allAnswered()) {
 							addWrappedWithPrefix(" ", theme.fg("success", "Press Enter to submit"));
 						} else {
@@ -412,32 +514,83 @@ export default function questionnaire(pi: ExtensionAPI) {
 						}
 					} else if (q) {
 						addWrappedWithPrefix(" ", theme.fg("text", q.prompt));
-						lines.push("");
+						bodyLines.push("");
 						renderOptions();
 					}
 
-					lines.push("");
+					bodyLines.push("");
 					if (!inputMode) {
 						const help = isMulti
 							? "Tab/←→ navigate • ↑↓ select • Enter confirm • Esc cancel"
 							: "↑↓ navigate • Enter select • Esc cancel";
 						addWrappedWithPrefix(" ", theme.fg("dim", help));
 					}
-					lines.push(theme.fg("accent", "─".repeat(renderWidth)));
+					bodyLines.push(theme.fg("accent", "─".repeat(renderWidth)));
 
-					cachedLines = lines;
-					return lines;
+					if (followFocus && focusRow !== undefined && scrollView) {
+						if (focusRow < scrollView.scrollTop) scrollView.scrollTo(focusRow);
+						else if (focusRow >= scrollView.scrollTop + scrollView.viewportHeight) {
+							scrollView.scrollTo(focusRow - scrollView.viewportHeight + 1);
+						}
+					}
+					followFocus = false;
+					cachedLines = [renderToggle("▼ 收起以查看上方内容"), ...bodyLines];
+					return cachedLines;
 				}
 
-				return {
-					render,
-					invalidate: () => {
-						cachedWidth = undefined;
-						cachedLines = undefined;
-					},
-					handleInput,
-					handleMouse,
+				const invalidateContent = () => {
+					cachedWidth = undefined;
+					cachedRows = undefined;
+					cachedLines = undefined;
 				};
+				const headerContent = {
+					render: (width: number) => [render(width)[0] ?? ""],
+					invalidate: invalidateContent,
+				};
+				const header = new MouseRegion(headerContent, (event) => {
+					if (event.type === "wheel" && event.wheelDelta) {
+						scrollBy(event.wheelDelta);
+						return { handled: true };
+					}
+					return handleMouse({ ...event, y: 0 });
+				});
+				const body = {
+					render: (width: number) => render(width).slice(1),
+					invalidate: invalidateContent,
+					handleMouse: (event: TuiMouseEvent) => {
+						if (event.type === "wheel" && event.wheelDelta) {
+							scrollBy(event.wheelDelta);
+							return { handled: true };
+						}
+						return handleMouse({ ...event, y: event.y + 1 });
+					},
+				};
+				scrollView = new ScrollView(body, {
+					overscroll: "contain",
+					scrollbar: "auto",
+					scrollbarTrackStyle: (text) => theme.fg("dim", text),
+					scrollbarThumbStyle: (text) => theme.fg("accent", text),
+				});
+				const dialogRows = Math.max(1, tui.terminal.rows);
+				const maxDialogHeight = Math.max(4, Math.min(dialogRows - 3, Math.floor(dialogRows * 0.65)));
+				class QuestionnaireDialogLayout extends VStack {
+					get capturesViewportInput() {
+						return !collapsed;
+					}
+					handleInput(data: string) {
+						handleInput(data);
+					}
+				}
+				return new QuestionnaireDialogLayout([
+					{ component: header, basis: 1, grow: 0, shrink: 0 },
+					{
+						component: scrollView,
+						shrink: 1,
+						minSize: 0,
+						maxSize: maxDialogHeight - 1,
+						visible: () => !collapsed,
+					},
+				]);
 			}, {
 				blocked: { kind: "question", message: "Waiting for questionnaire answers" },
 			});
