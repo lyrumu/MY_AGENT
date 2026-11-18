@@ -1,10 +1,15 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { MouseRegion, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 
 const STATUS_KEY = "openai-quota";
 const STATE_TYPE = "openai-quota-state";
-const POLL_INTERVAL_MS = 5 * 60_000;
+const POLL_INTERVAL_MS = 90_000;
+const POST_TURN_DELAY_MS = 2_000;
+const INITIAL_RETRY_MS = 15_000;
+const CACHE_MAX_AGE_MS = 4 * 60_000;
+const PERCENT_FORMAT = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 const STARTUP_TIMEOUT_MS = 15_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 const APP_SERVER = process.env.PI_QUOTA_CODEX_BIN || "codex";
@@ -12,7 +17,6 @@ const APP_SERVER = process.env.PI_QUOTA_CODEX_BIN || "codex";
 type Window = {
 	usedPercent?: number;
 	windowDurationMins?: number | null;
-	resetsAt?: number | null;
 };
 type Snapshot = {
 	limitId?: string | null;
@@ -75,8 +79,13 @@ class CodexAppServer {
 				startupReject(new Error(`Could not start Codex app-server (${error.message})`));
 				this.failPending(error);
 			});
+			child.stdin.on("error", (error) => {
+				startupReject(error);
+				this.failPending(error);
+			});
 			child.once("exit", (code, signal) => {
 				if (!this.stopped) {
+					this.stopped = true;
 					const error = new Error(`Codex app-server exited (${signal ?? code ?? "unknown"})`);
 					startupReject(error);
 					this.failPending(error);
@@ -165,173 +174,207 @@ function displayDuration(minutes: number): string {
 	return `${minutes}m`;
 }
 
-function formatWindow(window: Window | null | undefined, now: number): string | undefined {
-	if (!window || typeof window.usedPercent !== "number") return undefined;
-	const remaining = Math.max(0, Math.min(100, 100 - window.usedPercent));
-	const span = window.windowDurationMins ? displayDuration(window.windowDurationMins) : "limit";
-	const resets = window.resetsAt ? ` ↻${new Date(window.resetsAt * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "";
-	const stale = now - lastSuccessfulRead > POLL_INTERVAL_MS * 2 ? "*" : "";
-	return `${span} ${remaining.toFixed(0)}%${resets}${stale}`;
+function formatWindow(window: Window | null | undefined): string | undefined {
+	if (typeof window?.usedPercent !== "number" || !Number.isFinite(window.usedPercent) || window.usedPercent < 0) {
+		return undefined;
+	}
+	const remaining = 100 - Math.min(100, window.usedPercent);
+	const label = window.windowDurationMins && window.windowDurationMins > 0
+		? displayDuration(window.windowDurationMins)
+		: "额度";
+	const percent = remaining > 0 && remaining < 0.01 ? "<0.01" : PERCENT_FORMAT.format(remaining);
+	return `${label} ${percent}%`;
 }
 
-let lastSuccessfulRead = 0;
+type Sample = { text: string; readAt: number };
 
-function renderQuota(response: QuotaResponse, now: number): { compact: string; detail: string } {
+function summarizeQuota(response: QuotaResponse): string {
 	const snapshot = response.rateLimitsByLimitId?.codex ?? response.rateLimits;
-	const primary = formatWindow(snapshot?.primary, now);
-	const secondary = formatWindow(snapshot?.secondary, now);
-	const parts = [primary, secondary].filter(Boolean) as string[];
-	if (!parts.length) throw new Error("Codex returned no quota windows");
-	const available = response.rateLimitResetCredits?.availableCount;
-	const resetCount = available === undefined || available === null ? "未知" : String(available);
-	const permission = response.ordinaryUsageAllowed === false ? "普通额度已耗尽" : "普通额度可用";
-	const compact = `OpenAI ${parts.join(" | ")}`;
-	const detail = [
-		`ChatGPT / Codex 额度（官方 Codex App Server）`,
-		...parts.map((part) => `• ${part}`),
-		`• 可用重置次数：${resetCount}`,
-		`• ${permission}`,
-		`• 数据更新时间：${new Date(now).toLocaleString()}`,
-		`• 额度与模型成本不是同一指标；百分比由 OpenAI 服务端返回。`,
-		...(now - lastSuccessfulRead > POLL_INTERVAL_MS * 2 ? [`• 状态栏 * 表示数据可能过期。`] : []),
-	].join("\n");
-	return { compact, detail };
+	const windows = [formatWindow(snapshot?.primary), formatWindow(snapshot?.secondary)].filter(Boolean);
+	if (!windows.length) throw new Error("Codex did not return any quota windows");
+	const parts = [windows.join(" | ")];
+	const count = response.rateLimitResetCredits?.availableCount;
+	if ((typeof count === "number" && Number.isSafeInteger(count) && count >= 0) ||
+		(typeof count === "string" && /^\d+$/.test(count))) {
+		parts.push(`重置卡 ${count}`);
+	}
+	if (response.ordinaryUsageAllowed === false) parts.push("普通额度受限");
+	return parts.join(" · ");
+}
+
+type Monitor = {
+	ui: ExtensionContext["ui"];
+	client?: CodexAppServer;
+	timer?: ReturnType<typeof setTimeout>;
+	dueAt?: number;
+	expiryTimer?: ReturnType<typeof setTimeout>;
+	render?: () => void;
+	sample?: Sample;
+	busy: boolean;
+	failed: boolean;
+	retryDelayMs: number;
+	openAiUsed: boolean;
+};
+
+function widgetLabel(state: Monitor, clickable: boolean): { summary: string; hint: string } {
+	const sample = state.sample;
+	const hint = state.busy ? "刷新中…" : clickable ? "点击刷新" : "/qr 刷新";
+	if (!sample || Date.now() - sample.readAt >= CACHE_MAX_AGE_MS) return { summary: "Codex", hint };
+	const cached = state.failed ? " · 缓存" : "";
+	return { summary: `Codex · ${sample.text}${cached}`, hint };
 }
 
 export default function (pi: ExtensionAPI) {
-	let client: CodexAppServer | undefined;
-	let timer: ReturnType<typeof setInterval> | undefined;
-	let retryTimer: ReturnType<typeof setTimeout> | undefined;
-	let retryDelayMs = 15_000;
-	let refreshing: Promise<void> | undefined;
-	let currentStatus: ((text: string | undefined) => void) | undefined;
-	let lastResult: QuotaResponse | undefined;
-	let lastError: string | undefined;
-	// Quota poll the OpenAI usage endpoint, so it stays off unless the user asks for it.
-	// The toggle is stored per session so a reopened session keeps its previous state.
-	let enabled = process.env.PI_QUOTA_AUTOSTART === "1";
+	let monitor: Monitor | undefined;
+	let enabled = false;
 
-	const restoreState = (ctx: { sessionManager: { getBranch: () => readonly any[] } }): void => {
-		enabled = process.env.PI_QUOTA_AUTOSTART === "1";
-		for (const entry of ctx.sessionManager.getBranch()) {
-			if (entry?.type !== "custom" || entry.customType !== STATE_TYPE) continue;
+	const restoreState = (ctx: ExtensionContext) => {
+		for (const entry of [...ctx.sessionManager.getBranch()].reverse()) {
+			if (entry.type !== "custom" || entry.customType !== STATE_TYPE) continue;
 			const stored = entry.data as { enabled?: unknown } | undefined;
-			if (typeof stored?.enabled === "boolean") enabled = stored.enabled;
+			if (typeof stored?.enabled === "boolean") return stored.enabled;
+		}
+		return process.env.PI_QUOTA_AUTOSTART === "1";
+	};
+
+	function stop() {
+		const state = monitor;
+		monitor = undefined; // Invalidate in-flight work before closing the child.
+		if (!state) return;
+		clearTimeout(state.timer);
+		clearTimeout(state.expiryTimer);
+		state.client?.stop();
+		state.ui.setWidget(STATUS_KEY, undefined);
+	}
+
+	// A single timer takes the earliest refresh request. Requests scheduled while a
+	// read is running are drained once it finishes; manual clicks join that read.
+	function schedule(state: Monitor, delayMs: number) {
+		if (monitor !== state) return;
+		const dueAt = Date.now() + delayMs;
+		state.dueAt = Math.min(state.dueAt ?? dueAt, dueAt);
+		if (state.busy) return;
+		clearTimeout(state.timer);
+		state.timer = setTimeout(() => {
+			state.timer = undefined;
+			state.dueAt = undefined;
+			void refresh(state);
+		}, Math.max(0, state.dueAt - Date.now()));
+	}
+
+	function refreshManually(state: Monitor) {
+		if (monitor === state && !state.busy) schedule(state, 0);
+	}
+
+	async function refresh(state: Monitor) {
+		if (monitor !== state) return;
+		state.busy = true;
+		state.render?.();
+		let delayMs = POLL_INTERVAL_MS;
+		try {
+			state.client ??= new CodexAppServer();
+			const result = await state.client.readQuota();
+			if (monitor !== state) return;
+			state.sample = { text: summarizeQuota(result), readAt: Date.now() };
+			state.failed = false;
+			state.retryDelayMs = INITIAL_RETRY_MS;
+			clearTimeout(state.expiryTimer);
+			state.expiryTimer = setTimeout(() => {
+				if (monitor === state) state.render?.();
+			}, CACHE_MAX_AGE_MS);
+		} catch {
+			if (monitor !== state) return;
+			state.failed = true;
+			state.client?.stop();
+			state.client = undefined;
+			delayMs = state.retryDelayMs;
+			state.retryDelayMs = Math.min(delayMs * 2, POLL_INTERVAL_MS);
+		} finally {
+			if (monitor === state) {
+				state.busy = false;
+				state.render?.();
+				schedule(state, delayMs);
+			}
+		}
+	}
+
+	function start(ctx: ExtensionContext) {
+		if (monitor || ctx.mode !== "tui") return;
+		const state: Monitor = { ui: ctx.ui, busy: false, failed: false, retryDelayMs: INITIAL_RETRY_MS, openAiUsed: false };
+		monitor = state;
+		ctx.ui.setWidget(STATUS_KEY, (tui, theme) => {
+			const clickable = tui.mode === "fullscreen";
+			let hitWidth = 0;
+			state.render = () => tui.requestRender();
+			const component = {
+				render(width: number) {
+					if (width <= 0) {
+						hitWidth = 0;
+						return [];
+					}
+					const { summary, hint } = widgetLabel(state, clickable);
+					const line = truncateToWidth(`${theme.fg("text", summary)}  ${theme.fg("dim", hint)}`, width);
+					hitWidth = visibleWidth(line);
+					return [line];
+				},
+				invalidate() {},
+			};
+			return new MouseRegion(component, (event) => {
+				if (!clickable || event.type !== "click" || event.button !== "left" ||
+					event.y !== 0 || event.x < 0 || event.x >= hitWidth || event.shift || event.ctrl || event.alt) return;
+				refreshManually(state);
+				return { handled: true, render: false };
+			});
+		}, { placement: "belowEditor" });
+		schedule(state, 0);
+	}
+
+	const toggle = async (_args: string, ctx: ExtensionCommandContext) => {
+		if (ctx.mode !== "tui") return;
+		const next = !enabled;
+		pi.appendEntry(STATE_TYPE, { enabled: next });
+		enabled = next;
+		if (enabled) {
+			start(ctx);
+			ctx.ui.notify("额度显示已开启（使用本机 Codex CLI 的 ChatGPT 登录）。", "info");
+		} else {
+			stop();
+			ctx.ui.notify("额度显示已关闭。", "info");
 		}
 	};
 
-	const setStatus = (ctx: { ui: { setStatus: (key: string, text: string | undefined) => void } }, text: string | undefined) => {
-		ctx.ui.setStatus(STATUS_KEY, text);
-	};
-
-	const stopPolling = (clearStatus: boolean) => {
-		if (timer) clearInterval(timer);
-		if (retryTimer) clearTimeout(retryTimer);
-		timer = undefined;
-		retryTimer = undefined;
-		client?.stop();
-		client = undefined;
-		retryDelayMs = 15_000;
-		if (clearStatus) currentStatus?.(undefined);
-	};
-
-	const startPolling = (ctx: { ui: { setStatus: (key: string, text: string | undefined) => void; notify: (message: string, level?: "info" | "warning" | "error") => void } }) => {
-		if (timer) return;
-		currentStatus?.(`OpenAI quota: checking…`);
-		setTimeout(() => { void refresh(ctx); }, 0);
-		timer = setInterval(() => { void refresh(ctx); }, POLL_INTERVAL_MS);
-	};
-
-	const refresh = (ctx: { ui: { setStatus: (key: string, text: string | undefined) => void; notify: (message: string, level?: "info" | "warning" | "error") => void } }, notifyOnError = false): Promise<void> => {
-		if (!enabled) return Promise.resolve();
-		if (refreshing) return refreshing;
-		refreshing = (async () => {
-			try {
-				if (!client) client = new CodexAppServer();
-				const result = await client.readQuota();
-				const now = Date.now();
-				const rendered = renderQuota(result, now);
-				lastResult = result;
-				lastSuccessfulRead = now;
-				lastError = undefined;
-				retryDelayMs = 15_000;
-				if (retryTimer) clearTimeout(retryTimer);
-				retryTimer = undefined;
-				currentStatus?.(rendered.compact);
-			} catch (error) {
-				lastError = error instanceof Error ? error.message : String(error);
-				const message = lastError.includes("ENOENT") || lastError.includes("not found")
-					? `未找到 Codex CLI（可设 PI_QUOTA_CODEX_BIN）；${lastError}`
-					: lastError;
-				if (lastResult) {
-					const old = renderQuota(lastResult, lastSuccessfulRead);
-					currentStatus?.(`${old.compact} · 过期，重试中`);
-				} else {
-					currentStatus?.(`OpenAI quota: 暂不可用，重试中`);
-				}
-				if (notifyOnError) ctx.ui.notify(`OpenAI quota refresh failed: ${message}`, "warning");
-				client?.stop();
-				client = undefined;
-				if (!retryTimer) {
-					const delay = retryDelayMs;
-					retryDelayMs = Math.min(retryDelayMs * 2, POLL_INTERVAL_MS);
-					retryTimer = setTimeout(() => {
-						retryTimer = undefined;
-						void refresh(ctx);
-					}, delay);
-				}
-			}
-		})().finally(() => { refreshing = undefined; });
-		return refreshing;
-	};
-
 	pi.registerCommand("quota", {
-		description: "Toggle OpenAI quota display on/off (requires local Codex CLI installed and logged in)",
+		description: "Toggle Codex quota display (requires a local Codex CLI signed in with ChatGPT)",
+		handler: toggle,
+	});
+	pi.registerCommand("quato", { description: "Alias for /quota", handler: toggle });
+	pi.registerCommand("qr", {
+		description: "Refresh the enabled Codex quota display",
 		handler: async (_args, ctx) => {
-			enabled = !enabled;
-			if (!enabled) {
-				stopPolling(true);
-				pi.appendEntry(STATE_TYPE, { enabled: false });
-				ctx.ui.notify("OpenAI 额度显示已关闭。再次输入 /quota 可重新开启。", "info");
-				return;
-			}
-			pi.appendEntry(STATE_TYPE, { enabled: true });
-			currentStatus = (text) => setStatus(ctx, text);
-			startPolling(ctx);
-			await refresh(ctx, true);
-			if (lastResult) {
-				const rendered = renderQuota(lastResult, lastSuccessfulRead);
-				ctx.ui.notify(`OpenAI 额度显示已开启。\n${rendered.detail}`, "info");
-			} else if (lastError) {
-				ctx.ui.notify(`OpenAI quota unavailable: ${lastError}\nThis feature requires the Codex CLI to be installed on this machine and logged in with ChatGPT. Check with ` +
-					"`codex login status`.", "warning");
-			}
+			if (monitor) refreshManually(monitor);
+			else if (ctx.mode === "tui") ctx.ui.notify("先用 /quota 开启额度显示。", "info");
 		},
 	});
 
-	pi.on("session_start", (_event, ctx) => {
-		// Never await quota work here: Pi awaits session_start handlers before the editor accepts
-		// input, so a slow Codex app-server spawn would delay every startup.
-		currentStatus = (text) => setStatus(ctx, text);
-		restoreState(ctx);
-		if (enabled) startPolling(ctx);
+	const restore = (_event: unknown, ctx: ExtensionContext) => {
+		if (ctx.mode !== "tui") return;
+		enabled = restoreState(ctx);
+		if (enabled) start(ctx);
+		else stop();
+	};
+	pi.on("session_start", restore);
+	pi.on("session_tree", restore);
+	pi.on("message_end", (event) => {
+		if (monitor && event.message.role === "assistant" &&
+			(event.message.provider === "openai" || event.message.provider === "openai-codex")) {
+			monitor.openAiUsed = true;
+		}
 	});
-
-	pi.on("session_tree", (_event, ctx) => {
-		stopPolling(true);
-		restoreState(ctx);
-		if (enabled) startPolling(ctx);
+	pi.on("agent_settled", () => {
+		const state = monitor;
+		if (!state?.openAiUsed) return;
+		state.openAiUsed = false;
+		schedule(state, POST_TURN_DELAY_MS);
 	});
-
-	pi.on("after_provider_response", (_event, ctx) => {
-		if (enabled && ctx.model?.provider === "openai") void refresh(ctx);
-	});
-
-	pi.on("session_shutdown", () => {
-		stopPolling(false);
-		currentStatus = undefined;
-		lastResult = undefined;
-		lastError = undefined;
-		lastSuccessfulRead = 0;
-	});
+	pi.on("session_shutdown", stop);
 }
