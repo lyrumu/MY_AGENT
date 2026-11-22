@@ -1,0 +1,19 @@
+{
+  "_comment": "仅备份 Microsoft Edge 的按站点 WebRTC 规则，Edge 不会读取此文件。恢复时先完全退出 Edge，再将 webrtc.ip_handling_url 中的规则合并到目标 Edge 个人资料目录下的 Preferences，保留已有设置，不要用此文件覆盖 Preferences。",
+  "webrtc": {
+    "ip_handling_url": [
+      {
+        "url": "https://[*.]google.com",
+        "handling": "disable_non_proxied_udp"
+      },
+      {
+        "url": "https://[*.]youtube.com",
+        "handling": "disable_non_proxied_udp"
+      },
+      {
+        "url": "https://chatgpt.com",
+        "handling": "disable_non_proxied_udp"
+      }
+    ]
+  }
+}

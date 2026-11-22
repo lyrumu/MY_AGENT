@@ -218,7 +218,7 @@ type Monitor = {
 
 function widgetLabel(state: Monitor, clickable: boolean): { summary: string; hint: string } {
 	const sample = state.sample;
-	const hint = state.busy ? "刷新中…" : clickable ? "点击刷新" : "/qr 刷新";
+	const hint = state.busy ? "刷新中…" : clickable ? "点击刷新" : "";
 	if (!sample || Date.now() - sample.readAt >= CACHE_MAX_AGE_MS) return { summary: "Codex", hint };
 	const cached = state.failed ? " · 缓存" : "";
 	return { summary: `Codex · ${sample.text}${cached}`, hint };
@@ -313,7 +313,8 @@ export default function (pi: ExtensionAPI) {
 						return [];
 					}
 					const { summary, hint } = widgetLabel(state, clickable);
-					const line = truncateToWidth(`${theme.fg("text", summary)}  ${theme.fg("dim", hint)}`, width);
+					const suffix = hint ? `  ${theme.fg("dim", hint)}` : "";
+					const line = truncateToWidth(theme.fg("text", summary) + suffix, width);
 					hitWidth = visibleWidth(line);
 					return [line];
 				},
@@ -346,14 +347,6 @@ export default function (pi: ExtensionAPI) {
 	pi.registerCommand("quota", {
 		description: "Toggle Codex quota display (requires a local Codex CLI signed in with ChatGPT)",
 		handler: toggle,
-	});
-	pi.registerCommand("quato", { description: "Alias for /quota", handler: toggle });
-	pi.registerCommand("qr", {
-		description: "Refresh the enabled Codex quota display",
-		handler: async (_args, ctx) => {
-			if (monitor) refreshManually(monitor);
-			else if (ctx.mode === "tui") ctx.ui.notify("先用 /quota 开启额度显示。", "info");
-		},
 	});
 
 	const restore = (_event: unknown, ctx: ExtensionContext) => {

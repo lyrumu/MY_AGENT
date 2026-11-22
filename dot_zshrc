@@ -30,6 +30,15 @@ export PATH="$PATH:/Users/lyrumu/.lmstudio/bin"
 export PATH="$HOME/.local/bin:$PATH"
 typeset -U path
 
+# 只在项目集合根目录为 Pi 选择默认工作区。
+pi() {
+  if [[ "$PWD" == "$HOME/project" ]]; then
+    (cd -- "$HOME/project/pi-project" && command pi "$@")
+  else
+    command pi "$@"
+  fi
+}
+
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
@@ -43,3 +52,10 @@ opencode() {
 
 # mycli 默认以 root 免密连接本机 MySQL（root 为空密码）
 alias mycli='mycli -u root'
+
+# 仅在 Antigravity 读取启动环境时使用 Clash Verge
+if [[ "${ANTIGRAVITY_RESOLVING_ENVIRONMENT:-}" == "1" ]]; then
+  export HTTP_PROXY="http://127.0.0.1:7897"
+  export HTTPS_PROXY="http://127.0.0.1:7897"
+  export NO_PROXY="localhost,127.0.0.1,::1${NO_PROXY:+,$NO_PROXY}"
+fi
