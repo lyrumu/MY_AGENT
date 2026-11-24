@@ -9,6 +9,9 @@
 # Obsidian 本地窗口状态，不纳管
 project/Notes/.obsidian/workspace.json
 
-# skills 本体不纳管：恢复时按 .skill-lock.json / installed_plugins.json 重装
-.cc-switch/skills
+# CC Switch 只备份这三个本地 Skill 本体，不纳管分配入口
+.cc-switch/skills/*
+!.cc-switch/skills/generate-ivory-etched-record
+!.cc-switch/skills/macos-safe-cleanup
+!.cc-switch/skills/wechat-article-studio
 .agents/skills

@@ -4,3 +4,7 @@
 export PATH="$PATH:/Users/lyrumu/.lmstudio/bin"
 # End of LM Studio CLI section
 
+
+
+# Added by Antigravity CLI installer
+export PATH="/Users/lyrumu/.local/bin:$PATH"

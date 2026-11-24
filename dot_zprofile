@@ -5,3 +5,7 @@ export PATH="$PATH:/Users/lyrumu/.docker/bin"
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # source ~/.keys/api_keys.txt 曾通过加载此文件来读取环境变量 现已弃用
+
+
+# Added by Antigravity CLI installer
+export PATH="/Users/lyrumu/.local/bin:$PATH"
