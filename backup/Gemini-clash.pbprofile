@@ -1,0 +1,31 @@
+{
+  "closeToMenuBar": true,
+  "defaultProxyId": "clash-verge-socks5-7897",
+  "dnsEnabled": false,
+  "name": "Default",
+  "proxyConfigs": [
+    {
+      "host": "127.0.0.1",
+      "id": "clash-verge-socks5-7897",
+      "name": "Clash Verge",
+      "port": 7897,
+      "sendDomain": false,
+      "type": "socks5"
+    }
+  ],
+  "proxyRules": [
+    {
+      "action": "clash-verge-socks5-7897",
+      "enabled": true,
+      "includeLocalhost": false,
+      "localId": "41a42fdb-7221-44b9-97ed-9fc457b01cfa",
+      "name": "Gemini → Clash",
+      "processNames": "com.google.GeminiMacOS*;/Applications/Gemini.app/Contents/Helpers/agy",
+      "protocol": "BOTH",
+      "targetHosts": "*",
+      "targetPorts": "*"
+    }
+  ],
+  "runAtStartup": true,
+  "trafficLoggingEnabled": false
+}
